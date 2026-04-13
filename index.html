@@ -120,6 +120,13 @@
               <i data-lucide="wallet" class="w-4 h-4 text-emerald-600"></i> 수입 내역
             </h3>
             <div class="flex items-center gap-1.5">
+              <!-- 수입 정렬 선택 옵션 -->
+              <select id="incomeSortSelect" onchange="window.changeIncomeSort(this.value)" class="text-xs border border-slate-200 rounded-md px-2 py-1.5 text-slate-600 bg-white focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none cursor-pointer hover:bg-slate-50 transition-colors">
+                <option value="dateDesc">수입일 최신순</option>
+                <option value="amountDesc">금액 높은순</option>
+                <option value="amountAsc">금액 낮은순</option>
+              </select>
+              <div class="w-px h-4 bg-slate-200 mx-1"></div>
               <input type="file" id="incomeExcelUpload" accept=".xlsx, .xls, .csv" class="hidden" onchange="window.handleIncomeFileUpload(event)" />
               <button onclick="document.getElementById('incomeExcelUpload').click()" class="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors" title="수입 엑셀 업로드">
                 <i data-lucide="upload" class="w-4 h-4"></i>
@@ -195,7 +202,7 @@
           </button>
           <input type="file" id="excelUpload" accept=".xlsx, .xls, .csv" class="hidden" onchange="window.handleFileUpload(event)" />
           <button onclick="document.getElementById('excelUpload').click()" id="uploadBtn" class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
-            <i data-lucide="upload" class="w-4 h-4"></i> 엑셀 업로드
+            <i data-lucide="upload" class="w-4 h-4"></i> 지출 엑셀 업로드
           </button>
           <button onclick="window.handleExport()" class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
             <i data-lucide="download" class="w-4 h-4"></i> 다운로드
@@ -333,7 +340,6 @@
       <form id="incomeForm" onsubmit="window.saveIncome(event)" class="p-6 space-y-4">
         <input type="hidden" id="inc-editId">
         <div class="space-y-1">
-          <!-- 시간까지 입력 가능하도록 datetime-local 타입 유지 -->
           <label class="text-xs font-medium text-slate-500">수입 일시</label>
           <input type="datetime-local" id="inc-date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
         </div>
@@ -391,6 +397,7 @@
 
     let globalExpenses = [];
     let globalIncomes = [];
+    let currentIncomeSort = 'dateDesc'; // 수입 내역 정렬 상태 변수
     const EXPENSE_COLLECTION = "team_expenses";
     const INCOME_COLLECTION = "team_incomes";
 
@@ -432,6 +439,12 @@
         btnExp.className = "pb-3 text-blue-600 border-b-2 border-blue-600 font-bold text-base transition-colors flex items-center gap-2";
         btnDash.className = "pb-3 text-slate-500 hover:text-slate-800 font-medium text-base transition-colors flex items-center gap-2";
       }
+    };
+
+    // 정렬 방식 변경 이벤트 함수
+    window.changeIncomeSort = (val) => {
+      currentIncomeSort = val;
+      requestRender();
     };
 
     let renderTimer = null;
@@ -486,7 +499,6 @@
 
     const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(Math.round(amount || 0));
 
-    // [수정됨] 시간 포맷팅 방식 변경 (T를 공백으로 치환하여 자연스럽게 출력)
     const formatDateTimeDisplay = (val) => {
       if(!val) return '';
       let str = String(val).replace('T', ' ').trim();
@@ -495,17 +507,13 @@
       return str;
     };
 
-    // 엑셀에서 넘어온 다양한 날짜/숫자 서식을 표준 날짜형식(YYYY-MM-DDTHH:mm)으로 강제 파싱하는 함수
     const parseExcelDate = (val, includeTime) => {
       if (val === undefined || val === null || val === '') return '';
-      // cellDates: true 로 인해 Date 객체로 넘어올 경우
       if (val instanceof Date) return val.toISOString().slice(0, includeTime ? 16 : 10);
-      // 엑셀 일련번호(숫자)로 넘어올 경우 (예: 45392)
       if (typeof val === 'number') {
         const date = new Date(Math.round((val - 25569) * 86400 * 1000));
         return date.toISOString().slice(0, includeTime ? 16 : 10);
       }
-      // 그 외 텍스트로 적힌 경우
       let str = String(val).trim().replace(/\//g, '-');
       if (includeTime) {
         str = str.replace(' ', 'T');
@@ -527,7 +535,17 @@
     // ==========================================
     const renderAll = () => {
       const sortedExpenses = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
-      const sortedIncomes = [...globalIncomes].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      
+      // 수입 내역 정렬 로직 적용
+      const sortedIncomes = [...globalIncomes].sort((a, b) => {
+        if (currentIncomeSort === 'amountDesc') {
+          return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+        } else if (currentIncomeSort === 'amountAsc') {
+          return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+        } else {
+          return new Date(b.date || 0) - new Date(a.date || 0); // 기본값: 최신순
+        }
+      });
       
       let totalExpense = 0;
       let totalIncome = 0;
@@ -567,8 +585,12 @@
       if (sortedIncomes.length === 0) {
         incHtml = `<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-400">등록된 수입이 없습니다.</td></tr>`;
       } else {
-        sortedIncomes.forEach((item) => {
+        // 총 수입 합계를 위해 전체 배열 사용 (정렬과 무관하게 합계 계산)
+        globalIncomes.forEach(item => {
           totalIncome += Number(item.amount) || 0;
+        });
+
+        sortedIncomes.forEach((item) => {
           incHtml += `
             <tr class="hover:bg-slate-50 border-b border-slate-50 last:border-0">
               <td class="px-4 py-3 text-slate-500">${formatDateTimeDisplay(item.date)}</td>
@@ -660,7 +682,7 @@
 
       // 4. 수입 카테고리별 요약
       const incCategoryTotals = {};
-      sortedIncomes.forEach(item => {
+      globalIncomes.forEach(item => {
         const cat = item.category || '기타 수익';
         incCategoryTotals[cat] = (incCategoryTotals[cat] || 0) + (Number(item.amount) || 0);
       });
@@ -948,7 +970,7 @@
     };
 
     // ==========================================
-    // [핵심] 엑셀 일괄 입출력 및 중복/덮어쓰기 스마트 필터링 로직
+    // 엑셀 일괄 입출력 및 중복/덮어쓰기 스마트 필터링 로직
     // ==========================================
     window.handleExport = () => {
       const sorted = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
@@ -1005,6 +1027,7 @@
             };
             if (!item.company && !item.amount) continue;
 
+            // 지출 데이터 중복/수정 판별 (No. 기준 또는 내용 기준)
             let existingItem = null;
             if (item.no) {
               existingItem = globalExpenses.find(ex => ex.no === item.no);
@@ -1013,6 +1036,7 @@
             }
 
             if (existingItem) {
+              // 완전히 동일한지 확인
               const isIdentical = existingItem.company === item.company && Number(existingItem.amount) === item.amount && 
                                   existingItem.details === item.details && existingItem.category === item.category &&
                                   existingItem.taxInvoice === item.taxInvoice && existingItem.bank === item.bank && 
@@ -1053,7 +1077,12 @@
     };
 
     window.handleIncomeExport = () => {
-      const sorted = [...globalIncomes].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      // 엑셀 다운로드 시에도 현재 선택된 정렬 방식 유지
+      const sorted = [...globalIncomes].sort((a, b) => {
+        if (currentIncomeSort === 'amountDesc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+        if (currentIncomeSort === 'amountAsc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+        return new Date(b.date || 0) - new Date(a.date || 0);
+      });
       if (sorted.length === 0) return window.showToast('다운로드할 수입 내역이 없습니다.', 'error');
 
       const exportData = sorted.map(item => ({
