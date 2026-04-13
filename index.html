@@ -140,7 +140,7 @@
             <table class="w-full text-left text-sm whitespace-nowrap">
               <thead class="text-slate-500 sticky top-0 bg-white border-b border-slate-100 shadow-sm z-10">
                 <tr>
-                  <th class="px-4 py-3 font-medium">수입일자</th>
+                  <th class="px-4 py-3 font-medium">수입일시</th>
                   <th class="px-4 py-3 font-medium">수입항목</th>
                   <th class="px-4 py-3 font-medium text-right">금액 (원)</th>
                   <th class="px-4 py-3 font-medium text-center">관리</th>
@@ -333,9 +333,9 @@
       <form id="incomeForm" onsubmit="window.saveIncome(event)" class="p-6 space-y-4">
         <input type="hidden" id="inc-editId">
         <div class="space-y-1">
-          <!-- 날짜만 입력받도록 type을 date로 변경 -->
-          <label class="text-xs font-medium text-slate-500">수입 일자</label>
-          <input type="date" id="inc-date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+          <!-- 시간까지 입력 가능하도록 datetime-local 타입 유지 -->
+          <label class="text-xs font-medium text-slate-500">수입 일시</label>
+          <input type="datetime-local" id="inc-date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
         </div>
         <div class="space-y-1">
           <label class="text-xs font-medium text-slate-500">수입 항목명 <span class="text-rose-500">*</span></label>
@@ -486,6 +486,37 @@
 
     const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(Math.round(amount || 0));
 
+    // [수정됨] 시간 포맷팅 방식 변경 (T를 공백으로 치환하여 자연스럽게 출력)
+    const formatDateTimeDisplay = (val) => {
+      if(!val) return '';
+      let str = String(val).replace('T', ' ').trim();
+      if(str.length >= 16) return str.slice(0, 16);
+      if(str.length === 10) return str + ' 00:00';
+      return str;
+    };
+
+    // 엑셀에서 넘어온 다양한 날짜/숫자 서식을 표준 날짜형식(YYYY-MM-DDTHH:mm)으로 강제 파싱하는 함수
+    const parseExcelDate = (val, includeTime) => {
+      if (val === undefined || val === null || val === '') return '';
+      // cellDates: true 로 인해 Date 객체로 넘어올 경우
+      if (val instanceof Date) return val.toISOString().slice(0, includeTime ? 16 : 10);
+      // 엑셀 일련번호(숫자)로 넘어올 경우 (예: 45392)
+      if (typeof val === 'number') {
+        const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+        return date.toISOString().slice(0, includeTime ? 16 : 10);
+      }
+      // 그 외 텍스트로 적힌 경우
+      let str = String(val).trim().replace(/\//g, '-');
+      if (includeTime) {
+        str = str.replace(' ', 'T');
+        if (str.length === 10) str += 'T00:00';
+        if (str.length > 16) str = str.slice(0, 16);
+      } else {
+        if (str.length > 10) str = str.slice(0, 10);
+      }
+      return str;
+    };
+
     const svgArrowUp = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>`;
     const svgArrowDown = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>`;
     const svgEdit = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`;
@@ -531,18 +562,16 @@
       }
       document.getElementById('expenseTableBody').innerHTML = expHtml;
 
-      // 2. 수입 표 그리기 (시간 잘라내고 날짜만 출력)
+      // 2. 수입 표 그리기
       let incHtml = '';
       if (sortedIncomes.length === 0) {
         incHtml = `<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-400">등록된 수입이 없습니다.</td></tr>`;
       } else {
         sortedIncomes.forEach((item) => {
           totalIncome += Number(item.amount) || 0;
-          // YYYY-MM-DD만 출력
-          const displayDate = item.date ? String(item.date).slice(0, 10) : ''; 
           incHtml += `
             <tr class="hover:bg-slate-50 border-b border-slate-50 last:border-0">
-              <td class="px-4 py-3 text-slate-500">${displayDate}</td>
+              <td class="px-4 py-3 text-slate-500">${formatDateTimeDisplay(item.date)}</td>
               <td class="px-4 py-3">
                 <div class="font-medium text-slate-900">${item.title || ''}</div>
                 <div class="text-[10px] text-slate-400 mt-0.5">${item.category || ''}</div>
@@ -822,7 +851,9 @@
 
       document.getElementById('inc-editId').value = item.id;
       
-      let dt = item.date ? String(item.date).slice(0, 10) : '';
+      let dt = item.date ? String(item.date) : '';
+      if(dt.includes(' ')) dt = dt.replace(' ', 'T');
+      if(dt.length > 16) dt = dt.slice(0, 16);
 
       document.getElementById('inc-date').value = dt;
       document.getElementById('inc-title').value = item.title || '';
@@ -896,7 +927,7 @@
       lucide.createIcons();
       const today = new Date();
       const tzOffset = today.getTimezoneOffset() * 60000;
-      document.getElementById('inc-date').value = (new Date(today - tzOffset)).toISOString().slice(0, 10);
+      document.getElementById('inc-date').value = (new Date(today - tzOffset)).toISOString().slice(0, 16);
       openModalUI('incomeModal', 'incomeModalContent');
     };
     window.closeIncomeModal = () => closeModalUI('incomeModal', 'incomeModalContent');
@@ -917,7 +948,7 @@
     };
 
     // ==========================================
-    // 엑셀 일괄 입출력 및 중복/덮어쓰기 스마트 필터링 로직
+    // [핵심] 엑셀 일괄 입출력 및 중복/덮어쓰기 스마트 필터링 로직
     // ==========================================
     window.handleExport = () => {
       const sorted = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
@@ -939,7 +970,8 @@
         const reader = new FileReader();
         reader.onload = async (event) => {
           const data = new Uint8Array(event.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
+          // cellDates 옵션을 적용하여 엑셀 내부의 날짜, 숫자, 텍스트 형태를 완벽하게 대응합니다.
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
           const worksheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
@@ -954,16 +986,25 @@
           let batchCount = 0;
 
           for(const row of rows) {
-            const getVal = col => row[headers.indexOf(col)] || '';
+            const getVal = col => row[headers.indexOf(col)];
+            const rawDate = getVal('출금일자');
+            const parsedDate = parseExcelDate(rawDate, false);
+            
             const item = {
-              no: String(getVal('No.')), company: getVal('업체명'), details: getVal('내역'),
-              category: getVal('구분(카테고리)') || getVal('구분') || '기타', amount: Number(getVal('금액')) || 0,
-              taxInvoice: getVal('세금계산서'), bank: getVal('은행명'), account: getVal('계좌번호'),
-              holder: getVal('예금주'), date: getVal('출금일자'), note: getVal('비고')
+              no: String(getVal('No.') || ''), 
+              company: String(getVal('업체명') || ''), 
+              details: String(getVal('내역') || ''),
+              category: String(getVal('구분(카테고리)') || getVal('구분') || '기타'), 
+              amount: Number(getVal('금액')) || 0,
+              taxInvoice: String(getVal('세금계산서') || ''), 
+              bank: String(getVal('은행명') || ''), 
+              account: String(getVal('계좌번호') || ''),
+              holder: String(getVal('예금주') || ''), 
+              date: parsedDate, 
+              note: String(getVal('비고') || '')
             };
             if (!item.company && !item.amount) continue;
 
-            // 지출 데이터 중복/수정 판별 (No. 기준 또는 내용 기준)
             let existingItem = null;
             if (item.no) {
               existingItem = globalExpenses.find(ex => ex.no === item.no);
@@ -972,23 +1013,20 @@
             }
 
             if (existingItem) {
-              // 완전히 동일한지 확인
               const isIdentical = existingItem.company === item.company && Number(existingItem.amount) === item.amount && 
                                   existingItem.details === item.details && existingItem.category === item.category &&
                                   existingItem.taxInvoice === item.taxInvoice && existingItem.bank === item.bank && 
                                   existingItem.account === item.account && existingItem.holder === item.holder && 
                                   existingItem.date === item.date && existingItem.note === item.note;
               if (isIdentical) {
-                dup++; // 변경점 없음 (필터링)
+                dup++; 
               } else {
-                // 내용이 다르면 수정으로 처리
                 const docRef = doc(db, EXPENSE_COLLECTION, existingItem.id);
                 batch.update(docRef, { ...item, updatedAt: new Date().toISOString() });
                 updated++;
                 batchCount++;
               }
             } else { 
-              // 완전히 새로운 데이터
               item.createdAt = new Date().toISOString();
               const newDocRef = doc(collection(db, EXPENSE_COLLECTION));
               batch.set(newDocRef, item); 
@@ -1019,7 +1057,7 @@
       if (sorted.length === 0) return window.showToast('다운로드할 수입 내역이 없습니다.', 'error');
 
       const exportData = sorted.map(item => ({
-        '수입일자': item.date ? String(item.date).slice(0, 10) : '',
+        '수입일시': formatDateTimeDisplay(item.date),
         '수입항목': item.title,
         '수입카테고리': item.category,
         '금액': item.amount
@@ -1038,11 +1076,12 @@
         const reader = new FileReader();
         reader.onload = async (event) => {
           const data = new Uint8Array(event.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
+          // cellDates 옵션을 적용하여 엑셀 내부의 날짜 서식을 Date 객체로 읽어옵니다.
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
           const worksheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-          let headerRowIndex = jsonData.findIndex(row => row && (row.includes('수입항목') || row.includes('수입일자')) && row.includes('금액'));
+          let headerRowIndex = jsonData.findIndex(row => row && (row.includes('수입항목') || row.includes('수입일시') || row.includes('수입일자')) && row.includes('금액'));
           if (headerRowIndex === -1) {
             return window.showToast('양식이 맞지 않습니다. (수입항목, 금액 헤더 필수)', 'error');
           }
@@ -1055,42 +1094,38 @@
           let batchCount = 0;
 
           for(const row of rows) {
-            const getVal = col => row[headers.indexOf(col)] || '';
+            const getVal = col => row[headers.indexOf(col)];
             
-            // 엑셀 데이터에서 시간 정보 제거하고 날짜(YYYY-MM-DD)만 추출
-            let rawDate = getVal('수입일시') || getVal('수입일자');
-            if(!rawDate) {
+            const rawDate = getVal('수입일시') !== undefined ? getVal('수입일시') : getVal('수입일자');
+            let parsedDate = parseExcelDate(rawDate, true); // true: 시간 포함 파싱
+            
+            if(!parsedDate) {
               const today = new Date();
               const tzOffset = today.getTimezoneOffset() * 60000;
-              rawDate = (new Date(today - tzOffset)).toISOString().slice(0, 10);
-            } else {
-              rawDate = String(rawDate).trim().replace(/\//g, '-').slice(0, 10);
+              parsedDate = (new Date(today - tzOffset)).toISOString().slice(0, 10) + 'T00:00';
             }
 
             const item = {
-              date: rawDate,
-              title: getVal('수입항목'),
-              category: getVal('수입카테고리') || getVal('카테고리') || '기타 수익',
+              date: parsedDate,
+              title: String(getVal('수입항목') || ''),
+              category: String(getVal('수입카테고리') || getVal('카테고리') || '기타 수익'),
               amount: Number(getVal('금액')) || 0
             };
             if (!item.title && !item.amount) continue;
 
-            // 수입 데이터 중복/수정 판별 (날짜와 항목명이 고유 키 역할을 합니다)
-            const existingItem = globalIncomes.find(inc => inc.title === item.title && String(inc.date).slice(0, 10) === item.date);
+            const existingItem = globalIncomes.find(inc => inc.title === item.title && String(inc.date).slice(0, 10) === item.date.slice(0, 10));
             
             if (existingItem) {
-              const isIdentical = Number(existingItem.amount) === item.amount && existingItem.category === item.category;
+              const isIdentical = Number(existingItem.amount) === item.amount && existingItem.category === item.category && existingItem.date === item.date;
               if (isIdentical) {
-                dup++; // 완전히 일치하면 제외 (필터링)
+                dup++; 
               } else {
-                // 날짜, 항목명은 같으나 카테고리나 금액이 다르면 수정으로 처리
                 const docRef = doc(db, INCOME_COLLECTION, existingItem.id);
                 batch.update(docRef, { amount: item.amount, category: item.category, date: item.date, updatedAt: new Date().toISOString() });
                 updated++;
                 batchCount++;
               }
             } else { 
-              // 새로운 데이터
               item.createdAt = new Date().toISOString();
               const newDocRef = doc(collection(db, INCOME_COLLECTION));
               batch.set(newDocRef, item);
