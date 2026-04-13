@@ -137,7 +137,8 @@
             <table class="w-full text-left text-sm whitespace-nowrap">
               <thead class="text-slate-500 sticky top-0 bg-white border-b border-slate-100 shadow-sm z-10">
                 <tr>
-                  <th class="px-4 py-3 font-medium">수입일자</th>
+                  <!-- 시간까지 표출되도록 헤더 변경 -->
+                  <th class="px-4 py-3 font-medium">수입일시</th>
                   <th class="px-4 py-3 font-medium">수입항목</th>
                   <th class="px-4 py-3 font-medium text-right">금액 (원)</th>
                   <th class="px-4 py-3 font-medium text-center">관리</th>
@@ -327,8 +328,9 @@
       <form id="incomeForm" onsubmit="window.saveIncome(event)" class="p-6 space-y-4">
         <input type="hidden" id="inc-editId">
         <div class="space-y-1">
-          <label class="text-xs font-medium text-slate-500">수입 일자</label>
-          <input type="date" id="inc-date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+          <!-- 시간까지 입력 가능하도록 datetime-local 타입 적용 -->
+          <label class="text-xs font-medium text-slate-500">수입 일시</label>
+          <input type="datetime-local" id="inc-date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
         </div>
         <div class="space-y-1">
           <label class="text-xs font-medium text-slate-500">수입 항목명 <span class="text-rose-500">*</span></label>
@@ -479,6 +481,18 @@
 
     const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(Math.round(amount || 0));
 
+    // [수정됨] 시간 포맷 정리 시 데이터 타입을 안전하게 문자열로 변환합니다.
+    const formatDateTimeDisplay = (val) => {
+      if(!val) return '';
+      return String(val).replace('T', ' ');
+    };
+
+    // 로컬 시간 기준 ISO String 추출 함수
+    const getLocalISOString = (dateObj) => {
+      const tzOffset = dateObj.getTimezoneOffset() * 60000;
+      return (new Date(dateObj - tzOffset)).toISOString().slice(0, 16);
+    };
+
     const svgArrowUp = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>`;
     const svgArrowDown = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>`;
     const svgEdit = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`;
@@ -524,7 +538,7 @@
       }
       document.getElementById('expenseTableBody').innerHTML = expHtml;
 
-      // 2. 수입 표 그리기 (수정 버튼 추가)
+      // 2. 수입 표 그리기 (시간까지 렌더링)
       let incHtml = '';
       if (sortedIncomes.length === 0) {
         incHtml = `<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-400">등록된 수입이 없습니다.</td></tr>`;
@@ -533,7 +547,7 @@
           totalIncome += Number(item.amount) || 0;
           incHtml += `
             <tr class="hover:bg-slate-50 border-b border-slate-50 last:border-0">
-              <td class="px-4 py-3 text-slate-500">${item.date || ''}</td>
+              <td class="px-4 py-3 text-slate-500">${formatDateTimeDisplay(item.date)}</td>
               <td class="px-4 py-3">
                 <div class="font-medium text-slate-900">${item.title || ''}</div>
                 <div class="text-[10px] text-slate-400 mt-0.5">${item.category || ''}</div>
@@ -731,7 +745,7 @@
     };
 
     // ==========================================
-    // 수입 관리 CRUD (수정 기능 추가됨)
+    // 수입 관리 CRUD 
     // ==========================================
     window.saveIncome = async (e) => {
       e.preventDefault();
@@ -765,7 +779,13 @@
       if(!item) return;
 
       document.getElementById('inc-editId').value = item.id;
-      document.getElementById('inc-date').value = item.date || '';
+      
+      // [수정됨] 저장된 시간 데이터 포맷팅 시 데이터 타입을 안전하게 문자열로 변환
+      let dt = item.date ? String(item.date) : '';
+      if(dt.includes(' ')) dt = dt.replace(' ', 'T');
+      if(dt.length > 16) dt = dt.slice(0, 16);
+
+      document.getElementById('inc-date').value = dt;
       document.getElementById('inc-title').value = item.title || '';
       document.getElementById('inc-category').value = item.category || '기타 수익';
       document.getElementById('inc-amount').value = item.amount || '';
@@ -835,7 +855,7 @@
       document.getElementById('inc-editId').value = '';
       document.getElementById('incomeModalTitle').innerHTML = '<i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i> 수입 내역 기록';
       lucide.createIcons();
-      document.getElementById('inc-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('inc-date').value = getLocalISOString(new Date());
       openModalUI('incomeModal', 'incomeModalContent');
     };
     window.closeIncomeModal = () => closeModalUI('incomeModal', 'incomeModalContent');
@@ -856,7 +876,7 @@
     };
 
     // ==========================================
-    // 엑셀 일괄 입출력 처리
+    // 엑셀 일괄 입출력 및 중복/덮어쓰기 스마트 필터링 로직
     // ==========================================
     window.handleExport = () => {
       const sorted = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
@@ -887,7 +907,7 @@
 
           const headers = jsonData[headerRowIndex];
           const rows = jsonData.slice(headerRowIndex + 1);
-          let added = 0, dup = 0;
+          let added = 0, dup = 0, updated = 0;
           
           let batch = writeBatch(db);
           let batchCount = 0;
@@ -898,26 +918,47 @@
               no: String(getVal('No.')), company: getVal('업체명'), details: getVal('내역'),
               category: getVal('구분(카테고리)') || getVal('구분') || '기타', amount: Number(getVal('금액')) || 0,
               taxInvoice: getVal('세금계산서'), bank: getVal('은행명'), account: getVal('계좌번호'),
-              holder: getVal('예금주'), date: getVal('출금일자'), note: getVal('비고'),
-              createdAt: new Date().toISOString()
+              holder: getVal('예금주'), date: getVal('출금일자'), note: getVal('비고')
             };
             if (!item.company && !item.amount) continue;
 
-            const isDuplicate = globalExpenses.some(ex => ex.company === item.company && Number(ex.amount) === item.amount && ex.date === item.date);
-            
-            if (isDuplicate) {
-              dup++;
+            // 지출 데이터 중복/수정 판별 (No. 기준 또는 내용 기준)
+            let existingItem = null;
+            if (item.no) {
+              existingItem = globalExpenses.find(ex => ex.no === item.no);
+            } else {
+              existingItem = globalExpenses.find(ex => ex.company === item.company && ex.details === item.details && ex.date === item.date);
+            }
+
+            if (existingItem) {
+              // 완전히 동일한지 확인
+              const isIdentical = existingItem.company === item.company && Number(existingItem.amount) === item.amount && 
+                                  existingItem.details === item.details && existingItem.category === item.category &&
+                                  existingItem.taxInvoice === item.taxInvoice && existingItem.bank === item.bank && 
+                                  existingItem.account === item.account && existingItem.holder === item.holder && 
+                                  existingItem.date === item.date && existingItem.note === item.note;
+              if (isIdentical) {
+                dup++; // 변경점 없음 (필터링)
+              } else {
+                // 내용이 다르면 수정으로 처리
+                const docRef = doc(db, EXPENSE_COLLECTION, existingItem.id);
+                batch.update(docRef, { ...item, updatedAt: new Date().toISOString() });
+                updated++;
+                batchCount++;
+              }
             } else { 
+              // 완전히 새로운 데이터
+              item.createdAt = new Date().toISOString();
               const newDocRef = doc(collection(db, EXPENSE_COLLECTION));
               batch.set(newDocRef, item); 
               added++;
               batchCount++;
+            }
 
-              if (batchCount === 450) {
-                await batch.commit();
-                batch = writeBatch(db);
-                batchCount = 0;
-              }
+            if (batchCount >= 450) {
+              await batch.commit();
+              batch = writeBatch(db);
+              batchCount = 0;
             }
           }
           
@@ -925,7 +966,7 @@
             await batch.commit();
           }
 
-          window.showToast(`${added}건 일괄 추가됨 (중복 ${dup}건 제외)`);
+          window.showToast(`지출 ${added}건 추가, ${updated}건 덮어쓰기 (중복 ${dup}건 제외)`);
           e.target.value = '';
         };
         reader.readAsArrayBuffer(file);
@@ -937,7 +978,7 @@
       if (sorted.length === 0) return window.showToast('다운로드할 수입 내역이 없습니다.', 'error');
 
       const exportData = sorted.map(item => ({
-        '수입일자': item.date,
+        '수입일시': formatDateTimeDisplay(item.date),
         '수입항목': item.title,
         '수입카테고리': item.category,
         '금액': item.amount
@@ -967,37 +1008,54 @@
 
           const headers = jsonData[headerRowIndex];
           const rows = jsonData.slice(headerRowIndex + 1);
-          let added = 0, dup = 0;
+          let added = 0, dup = 0, updated = 0;
           
           let batch = writeBatch(db);
           let batchCount = 0;
 
           for(const row of rows) {
             const getVal = col => row[headers.indexOf(col)] || '';
+            
+            // [수정됨] 엑셀에 입력된 수입일시를 포맷팅 할 때 데이터 타입을 안전하게 문자열로 변환합니다.
+            let rawDate = getVal('수입일시') || getVal('수입일자') || getLocalISOString(new Date());
+            rawDate = String(rawDate).replace(' ', 'T'); // datetime 포맷에 맞게 공백을 T로 치환
+            if(rawDate.length > 16) rawDate = rawDate.slice(0, 16);
+
             const item = {
-              date: getVal('수입일자') || new Date().toISOString().split('T')[0],
+              date: rawDate,
               title: getVal('수입항목'),
               category: getVal('수입카테고리') || getVal('카테고리') || '기타 수익',
-              amount: Number(getVal('금액')) || 0,
-              createdAt: new Date().toISOString()
+              amount: Number(getVal('금액')) || 0
             };
             if (!item.title && !item.amount) continue;
 
-            const isDuplicate = globalIncomes.some(inc => inc.title === item.title && Number(inc.amount) === item.amount && inc.date === item.date);
+            // 수입 데이터 중복/수정 판별 (시간과 항목명이 고유 키 역할을 합니다)
+            const existingItem = globalIncomes.find(inc => inc.title === item.title && inc.date === item.date);
             
-            if (isDuplicate) {
-              dup++;
+            if (existingItem) {
+              const isIdentical = Number(existingItem.amount) === item.amount && existingItem.category === item.category;
+              if (isIdentical) {
+                dup++; // 완전히 일치하면 제외 (필터링)
+              } else {
+                // 고유값(시간, 항목명)은 같으나 카테고리나 금액이 다르면 수정으로 처리
+                const docRef = doc(db, INCOME_COLLECTION, existingItem.id);
+                batch.update(docRef, { amount: item.amount, category: item.category, updatedAt: new Date().toISOString() });
+                updated++;
+                batchCount++;
+              }
             } else { 
+              // 새로운 데이터
+              item.createdAt = new Date().toISOString();
               const newDocRef = doc(collection(db, INCOME_COLLECTION));
               batch.set(newDocRef, item);
               added++;
               batchCount++;
+            }
 
-              if (batchCount === 450) {
-                await batch.commit();
-                batch = writeBatch(db);
-                batchCount = 0;
-              }
+            if (batchCount >= 450) {
+              await batch.commit();
+              batch = writeBatch(db);
+              batchCount = 0;
             }
           }
 
@@ -1005,7 +1063,7 @@
             await batch.commit();
           }
 
-          window.showToast(`수입 ${added}건 일괄 추가 (중복 ${dup}건 제외)`);
+          window.showToast(`수입 ${added}건 추가, ${updated}건 덮어쓰기 (중복 ${dup}건 제외)`);
           e.target.value = '';
         };
         reader.readAsArrayBuffer(file);
