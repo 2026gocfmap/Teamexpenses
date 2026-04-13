@@ -140,7 +140,7 @@
             <table class="w-full text-left text-sm whitespace-nowrap">
               <thead class="text-slate-500 sticky top-0 bg-white border-b border-slate-100 shadow-sm z-10">
                 <tr>
-                  <th class="px-4 py-3 font-medium">수입일시</th>
+                  <th class="px-4 py-3 font-medium">수입일자</th>
                   <th class="px-4 py-3 font-medium">수입항목</th>
                   <th class="px-4 py-3 font-medium text-right">금액 (원)</th>
                   <th class="px-4 py-3 font-medium text-center">관리</th>
@@ -333,9 +333,9 @@
       <form id="incomeForm" onsubmit="window.saveIncome(event)" class="p-6 space-y-4">
         <input type="hidden" id="inc-editId">
         <div class="space-y-1">
-          <!-- 시간까지 입력 가능하도록 datetime-local 타입 적용 -->
-          <label class="text-xs font-medium text-slate-500">수입 일시</label>
-          <input type="datetime-local" id="inc-date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+          <!-- 날짜만 입력받도록 type을 date로 변경 -->
+          <label class="text-xs font-medium text-slate-500">수입 일자</label>
+          <input type="date" id="inc-date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
         </div>
         <div class="space-y-1">
           <label class="text-xs font-medium text-slate-500">수입 항목명 <span class="text-rose-500">*</span></label>
@@ -486,21 +486,6 @@
 
     const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(Math.round(amount || 0));
 
-    // [수정됨] 시간 포맷팅 안정성 강화: 무조건 YYYY-MM-DD HH:mm 형태로 출력
-    const formatDateTimeDisplay = (val) => {
-      if(!val) return '';
-      let str = String(val).replace('T', ' ').trim();
-      if(str.length >= 16) return str.slice(0, 16);
-      if(str.length === 10) return str + ' 00:00'; // 날짜만 있는 경우 00:00 추가
-      return str;
-    };
-
-    // 로컬 시간 기준 ISO String 추출 함수
-    const getLocalISOString = (dateObj) => {
-      const tzOffset = dateObj.getTimezoneOffset() * 60000;
-      return (new Date(dateObj - tzOffset)).toISOString().slice(0, 16);
-    };
-
     const svgArrowUp = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>`;
     const svgArrowDown = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>`;
     const svgEdit = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`;
@@ -546,16 +531,18 @@
       }
       document.getElementById('expenseTableBody').innerHTML = expHtml;
 
-      // 2. 수입 표 그리기
+      // 2. 수입 표 그리기 (시간 잘라내고 날짜만 출력)
       let incHtml = '';
       if (sortedIncomes.length === 0) {
         incHtml = `<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-400">등록된 수입이 없습니다.</td></tr>`;
       } else {
         sortedIncomes.forEach((item) => {
           totalIncome += Number(item.amount) || 0;
+          // YYYY-MM-DD만 출력
+          const displayDate = item.date ? String(item.date).slice(0, 10) : ''; 
           incHtml += `
             <tr class="hover:bg-slate-50 border-b border-slate-50 last:border-0">
-              <td class="px-4 py-3 text-slate-500">${formatDateTimeDisplay(item.date)}</td>
+              <td class="px-4 py-3 text-slate-500">${displayDate}</td>
               <td class="px-4 py-3">
                 <div class="font-medium text-slate-900">${item.title || ''}</div>
                 <div class="text-[10px] text-slate-400 mt-0.5">${item.category || ''}</div>
@@ -835,9 +822,7 @@
 
       document.getElementById('inc-editId').value = item.id;
       
-      let dt = item.date ? String(item.date) : '';
-      if(dt.includes(' ')) dt = dt.replace(' ', 'T');
-      if(dt.length > 16) dt = dt.slice(0, 16);
+      let dt = item.date ? String(item.date).slice(0, 10) : '';
 
       document.getElementById('inc-date').value = dt;
       document.getElementById('inc-title').value = item.title || '';
@@ -909,7 +894,9 @@
       document.getElementById('inc-editId').value = '';
       document.getElementById('incomeModalTitle').innerHTML = '<i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i> 수입 내역 기록';
       lucide.createIcons();
-      document.getElementById('inc-date').value = getLocalISOString(new Date());
+      const today = new Date();
+      const tzOffset = today.getTimezoneOffset() * 60000;
+      document.getElementById('inc-date').value = (new Date(today - tzOffset)).toISOString().slice(0, 10);
       openModalUI('incomeModal', 'incomeModalContent');
     };
     window.closeIncomeModal = () => closeModalUI('incomeModal', 'incomeModalContent');
@@ -1032,7 +1019,7 @@
       if (sorted.length === 0) return window.showToast('다운로드할 수입 내역이 없습니다.', 'error');
 
       const exportData = sorted.map(item => ({
-        '수입일시': formatDateTimeDisplay(item.date),
+        '수입일자': item.date ? String(item.date).slice(0, 10) : '',
         '수입항목': item.title,
         '수입카테고리': item.category,
         '금액': item.amount
@@ -1055,7 +1042,7 @@
           const worksheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-          let headerRowIndex = jsonData.findIndex(row => row && row.includes('수입항목') && row.includes('금액'));
+          let headerRowIndex = jsonData.findIndex(row => row && (row.includes('수입항목') || row.includes('수입일자')) && row.includes('금액'));
           if (headerRowIndex === -1) {
             return window.showToast('양식이 맞지 않습니다. (수입항목, 금액 헤더 필수)', 'error');
           }
@@ -1070,11 +1057,15 @@
           for(const row of rows) {
             const getVal = col => row[headers.indexOf(col)] || '';
             
-            let rawDate = getVal('수입일시') || getVal('수입일자') || getLocalISOString(new Date());
-            // 공백을 포맷 통일을 위해 T로 치환
-            rawDate = String(rawDate).replace(' ', 'T'); 
-            if(rawDate.length > 16) rawDate = rawDate.slice(0, 16);
-            if(rawDate.length === 10) rawDate += 'T00:00'; // 날짜만 있을 경우 시간을 자정으로 자동 추가
+            // 엑셀 데이터에서 시간 정보 제거하고 날짜(YYYY-MM-DD)만 추출
+            let rawDate = getVal('수입일시') || getVal('수입일자');
+            if(!rawDate) {
+              const today = new Date();
+              const tzOffset = today.getTimezoneOffset() * 60000;
+              rawDate = (new Date(today - tzOffset)).toISOString().slice(0, 10);
+            } else {
+              rawDate = String(rawDate).trim().replace(/\//g, '-').slice(0, 10);
+            }
 
             const item = {
               date: rawDate,
@@ -1084,17 +1075,17 @@
             };
             if (!item.title && !item.amount) continue;
 
-            // 수입 데이터 중복/수정 판별 (시간과 항목명이 고유 키 역할을 합니다)
-            const existingItem = globalIncomes.find(inc => inc.title === item.title && inc.date === item.date);
+            // 수입 데이터 중복/수정 판별 (날짜와 항목명이 고유 키 역할을 합니다)
+            const existingItem = globalIncomes.find(inc => inc.title === item.title && String(inc.date).slice(0, 10) === item.date);
             
             if (existingItem) {
               const isIdentical = Number(existingItem.amount) === item.amount && existingItem.category === item.category;
               if (isIdentical) {
                 dup++; // 완전히 일치하면 제외 (필터링)
               } else {
-                // 고유값(시간, 항목명)은 같으나 카테고리나 금액이 다르면 수정으로 처리
+                // 날짜, 항목명은 같으나 카테고리나 금액이 다르면 수정으로 처리
                 const docRef = doc(db, INCOME_COLLECTION, existingItem.id);
-                batch.update(docRef, { amount: item.amount, category: item.category, updatedAt: new Date().toISOString() });
+                batch.update(docRef, { amount: item.amount, category: item.category, date: item.date, updatedAt: new Date().toISOString() });
                 updated++;
                 batchCount++;
               }
