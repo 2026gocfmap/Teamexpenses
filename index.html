@@ -3,16 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>팀 지출내역 관리</title>
+  <title>2026 GOCF 재무/손익 관리 시스템</title>
   
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS (Excel 처리) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
     /* 스크롤바 커스텀 */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     
@@ -20,159 +23,348 @@
     .toast-enter-active { transform: translate(-50%, 0); opacity: 1; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     .toast-exit { transform: translate(-50%, 0); opacity: 1; }
     .toast-exit-active { transform: translate(-50%, -20px); opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    
+    /* 탭 전환 애니메이션 */
+    .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+    .tab-content.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
 
+  <!-- Toast 알림 컨테이너 -->
   <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   <div class="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
     
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <!-- 헤더 영역 -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">팀 지출내역 관리</h1>
-        <p class="text-sm text-slate-500 mt-1">업데이트 시 모든 팀원에게 실시간으로 공유됩니다.</p>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">2026 GOCF 재무/손익 관리</h1>
+        <p class="text-sm text-slate-500 mt-1">지출 내역과 수입을 입력하면 손익분기점(BEP)이 자동으로 계산됩니다.</p>
       </div>
       
-      <div class="flex flex-wrap items-center gap-2">
-        <button onclick="window.copyShareLink()" class="flex items-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors shadow-sm text-sm font-medium">
-          <i data-lucide="share-2" class="w-4 h-4"></i> 링크 복사
-        </button>
-        <input type="file" id="excelUpload" accept=".xlsx, .xls, .csv" class="hidden" onchange="window.handleFileUpload(event)" />
-        <button onclick="document.getElementById('excelUpload').click()" id="uploadBtn" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
-          <i data-lucide="upload" class="w-4 h-4"></i> 엑셀 업로드
-        </button>
-        <button onclick="window.handleExport()" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
-          <i data-lucide="download" class="w-4 h-4"></i> 엑셀 다운로드
-        </button>
-        <button onclick="window.openModal()" class="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium">
-          <i data-lucide="plus" class="w-4 h-4"></i> 내역 추가
-        </button>
+      <div class="flex items-center gap-2" id="statusBadge">
+        <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse" id="statusDot"></div>
+        <span id="syncStatus" class="text-sm font-medium text-blue-700">서버 연결 중...</span>
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between">
-      <div>
-        <h2 class="text-sm font-medium text-slate-500">총 누적 지출 금액</h2>
-        <div class="text-3xl font-bold text-slate-900 mt-1">
-          <span id="totalAmount">0</span><span class="text-lg text-slate-500 ml-1">원</span>
+    <!-- 탭 네비게이션 -->
+    <div class="flex gap-6 border-b border-slate-200 mb-6">
+      <button onclick="window.switchTab('dashboard')" id="tabBtn-dashboard" class="pb-3 text-blue-600 border-b-2 border-blue-600 font-bold text-base transition-colors flex items-center gap-2">
+        <i data-lucide="pie-chart" class="w-4 h-4"></i> 손익 대시보드
+      </button>
+      <button onclick="window.switchTab('expenses')" id="tabBtn-expenses" class="pb-3 text-slate-500 hover:text-slate-800 font-medium text-base transition-colors flex items-center gap-2">
+        <i data-lucide="receipt" class="w-4 h-4"></i> 지출 내역 관리
+      </button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 1. 손익 대시보드 탭 (BEP 및 통계) -->
+    <!-- ========================================== -->
+    <div id="tab-dashboard" class="tab-content active">
+      
+      <!-- 핵심 KPI 카드 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-slate-500">총 수입 (Income)</h3>
+            <div class="p-2 bg-emerald-50 rounded-lg text-emerald-600"><i data-lucide="trending-up" class="w-4 h-4"></i></div>
+          </div>
+          <div class="text-2xl font-bold text-slate-900 mt-2" id="kpi-income">0원</div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-slate-500">총 지출 (Expense)</h3>
+            <div class="p-2 bg-rose-50 rounded-lg text-rose-600"><i data-lucide="trending-down" class="w-4 h-4"></i></div>
+          </div>
+          <div class="text-2xl font-bold text-slate-900 mt-2" id="kpi-expense">0원</div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5" id="kpi-profit-card">
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-slate-500">현재 손익 (Net Profit)</h3>
+            <div class="p-2 bg-blue-50 rounded-lg text-blue-600" id="kpi-profit-icon"><i data-lucide="dollar-sign" class="w-4 h-4"></i></div>
+          </div>
+          <div class="text-2xl font-bold text-slate-900 mt-2" id="kpi-profit">0원</div>
         </div>
       </div>
-      <div class="mt-4 sm:mt-0 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium flex items-center gap-2" id="statusBadge">
-        <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse" id="statusDot"></div>
-        <span id="syncStatus">서버 연결 중...</span>
+
+      <!-- 손익분기점(BEP) 스마트 알림판 -->
+      <div id="bep-banner" class="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <h3 id="bep-title" class="font-bold text-slate-800 text-lg">손익분기점(BEP) 분석</h3>
+            <span id="be-percentage" class="px-2.5 py-0.5 bg-white rounded-md text-sm font-bold shadow-sm border border-slate-200">0% 달성</span>
+          </div>
+          <p id="bep-message" class="text-slate-600 text-sm md:text-base leading-relaxed">
+            수입과 지출 내역을 입력하시면 손익분기점 달성 여부를 자동으로 분석해 드립니다.
+          </p>
+          <div class="w-full bg-black/5 rounded-full h-2 mt-3 overflow-hidden">
+            <div id="be-progress" class="bg-slate-400 h-2 rounded-full transition-all duration-1000 ease-out" style="width: 0%"></div>
+          </div>
+        </div>
+        <div id="bep-status-icon" class="hidden sm:flex shrink-0 w-14 h-14 bg-white shadow-sm rounded-full items-center justify-center border border-slate-200 text-slate-400">
+          <i data-lucide="target" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- 수입 내역 관리 테이블 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+          <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+              <i data-lucide="wallet" class="w-4 h-4 text-emerald-600"></i> 수입 내역
+            </h3>
+            <div class="flex items-center gap-1.5">
+              <input type="file" id="incomeExcelUpload" accept=".xlsx, .xls, .csv" class="hidden" onchange="window.handleIncomeFileUpload(event)" />
+              <button onclick="document.getElementById('incomeExcelUpload').click()" class="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors" title="수입 엑셀 업로드">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+              </button>
+              <button onclick="window.handleIncomeExport()" class="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors" title="수입 엑셀 다운로드">
+                <i data-lucide="download" class="w-4 h-4"></i>
+              </button>
+              <div class="w-px h-4 bg-slate-200 mx-1"></div>
+              <button onclick="window.openIncomeModal()" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md text-sm font-medium transition-colors flex items-center gap-1">
+                <i data-lucide="plus" class="w-3 h-3"></i> 수입 추가
+              </button>
+            </div>
+          </div>
+          <div class="p-0 overflow-auto h-[400px]">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+              <thead class="text-slate-500 sticky top-0 bg-white border-b border-slate-100 shadow-sm z-10">
+                <tr>
+                  <th class="px-4 py-3 font-medium">수입일자</th>
+                  <th class="px-4 py-3 font-medium">수입항목</th>
+                  <th class="px-4 py-3 font-medium text-right">금액 (원)</th>
+                  <th class="px-4 py-3 font-medium text-center">관리</th>
+                </tr>
+              </thead>
+              <tbody id="incomeTableBody" class="divide-y divide-slate-50">
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 항목별 비율 요약 (수입/지출) -->
+        <div class="flex flex-col gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1">
+            <div class="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 class="font-semibold text-slate-800 flex items-center gap-2 text-sm">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i> 수입 항목별 비율
+              </h3>
+            </div>
+            <div class="p-4 overflow-auto flex-1 flex flex-col gap-3 min-h-[150px]" id="incomeSummaryBody">
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1">
+            <div class="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 class="font-semibold text-slate-800 flex items-center gap-2 text-sm">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-rose-500"></i> 지출 항목별 비율
+              </h3>
+            </div>
+            <div class="p-4 overflow-auto flex-1 flex flex-col gap-3 min-h-[150px]" id="expenseSummaryBody">
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="overflow-auto max-h-[calc(100vh-280px)] min-h-[400px]">
-        <table class="w-full text-left text-sm whitespace-nowrap relative">
-          <thead class="text-slate-600 font-semibold sticky top-0 z-10 shadow-sm ring-1 ring-slate-200">
-            <tr>
-              <th class="px-4 py-3 bg-slate-50">No.</th>
-              <th class="px-4 py-3 bg-slate-50">업체명</th>
-              <th class="px-4 py-3 bg-slate-50 min-w-[200px]">내역</th>
-              <th class="px-4 py-3 bg-slate-50">구분</th>
-              <th class="px-4 py-3 bg-slate-50 text-right">금액 (원)</th>
-              <th class="px-4 py-3 bg-slate-50">세금계산서</th>
-              <th class="px-4 py-3 bg-slate-50">은행명</th>
-              <th class="px-4 py-3 bg-slate-50">계좌번호</th>
-              <th class="px-4 py-3 bg-slate-50">예금주</th>
-              <th class="px-4 py-3 bg-slate-50">출금일자</th>
-              <th class="px-4 py-3 bg-slate-50">비고</th>
-              <th class="px-4 py-3 bg-slate-50 text-center">관리</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody" class="divide-y divide-slate-100">
-            <tr>
-              <td colspan="12" class="px-4 py-12 text-center text-slate-400">데이터를 불러오는 중입니다...</td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- ========================================== -->
+    <!-- 2. 지출 내역 탭 (상세 엑셀 테이블) -->
+    <!-- ========================================== -->
+    <div id="tab-expenses" class="tab-content">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="bg-white px-4 py-2 border border-slate-200 rounded-lg shadow-sm">
+            <span class="text-sm font-medium text-slate-500">총 지출액: </span>
+            <span class="text-lg font-bold text-slate-900" id="totalAmount">0</span><span class="text-sm text-slate-500">원</span>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="window.copyShareLink()" class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
+            <i data-lucide="share-2" class="w-4 h-4"></i> 링크 복사
+          </button>
+          <input type="file" id="excelUpload" accept=".xlsx, .xls, .csv" class="hidden" onchange="window.handleFileUpload(event)" />
+          <button onclick="document.getElementById('excelUpload').click()" id="uploadBtn" class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
+            <i data-lucide="upload" class="w-4 h-4"></i> 지출 엑셀 업로드
+          </button>
+          <button onclick="window.handleExport()" class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-sm font-medium">
+            <i data-lucide="download" class="w-4 h-4"></i> 지출 엑셀 다운로드
+          </button>
+          <button onclick="window.openExpenseModal()" class="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium">
+            <i data-lucide="plus" class="w-4 h-4"></i> 지출 추가
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-auto max-h-[calc(100vh-250px)] min-h-[500px]">
+          <table class="w-full text-left text-sm whitespace-nowrap relative">
+            <thead class="text-slate-600 font-semibold sticky top-0 z-10 shadow-sm ring-1 ring-slate-200">
+              <tr>
+                <th class="px-4 py-3 bg-slate-50">No.</th>
+                <th class="px-4 py-3 bg-slate-50">업체명</th>
+                <th class="px-4 py-3 bg-slate-50 min-w-[200px]">내역</th>
+                <th class="px-4 py-3 bg-slate-50">구분</th>
+                <th class="px-4 py-3 bg-slate-50 text-right">금액 (원)</th>
+                <th class="px-4 py-3 bg-slate-50">세금계산서</th>
+                <th class="px-4 py-3 bg-slate-50">은행명</th>
+                <th class="px-4 py-3 bg-slate-50">계좌번호</th>
+                <th class="px-4 py-3 bg-slate-50">예금주</th>
+                <th class="px-4 py-3 bg-slate-50">출금일자</th>
+                <th class="px-4 py-3 bg-slate-50">비고</th>
+                <th class="px-4 py-3 bg-slate-50 text-center">관리</th>
+              </tr>
+            </thead>
+            <tbody id="expenseTableBody" class="divide-y divide-slate-100">
+              <tr>
+                <td colspan="12" class="px-4 py-12 text-center text-slate-400">데이터를 불러오는 중입니다...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
-  <div id="modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-40 p-4 opacity-0 transition-opacity">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col transform scale-95 transition-transform" id="modalContent">
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-slate-900" id="modalTitle">새 지출 내역 추가</h3>
-        <button onclick="window.closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+  <!-- 모달 영역 생략 없이 전체 포함 -->
+  <div id="expenseModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 opacity-0 transition-opacity">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col transform scale-95 transition-transform" id="expenseModalContent">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2" id="expenseModalTitle">
+          <i data-lucide="receipt" class="w-5 h-5 text-blue-600"></i> 새 지출 내역 추가
+        </h3>
+        <button type="button" onclick="window.closeExpenseModal()" class="text-slate-400 hover:text-slate-600 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
       
-      <form id="dataForm" onsubmit="window.saveData(event)" class="flex-1 overflow-y-auto p-6">
-        <input type="hidden" id="editId">
+      <form id="expenseForm" onsubmit="window.saveExpense(event)" class="flex-1 overflow-y-auto p-6">
+        <input type="hidden" id="exp-editId">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="space-y-1">
             <label class="text-xs font-medium text-slate-500">No.</label>
-            <input type="text" id="no" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="자동 생성">
+            <input type="text" id="exp-no" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" placeholder="자동 생성">
           </div>
           <div class="space-y-1">
             <label class="text-xs font-medium text-slate-500">출금일자</label>
-            <input type="date" id="date" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <input type="date" id="exp-date" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
           </div>
           <div class="space-y-1 sm:col-span-2">
             <label class="text-xs font-medium text-slate-500">업체명 <span class="text-rose-500">*</span></label>
-            <input type="text" id="company" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <input type="text" id="exp-company" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
           </div>
           <div class="space-y-1 sm:col-span-2">
             <label class="text-xs font-medium text-slate-500">내역 상세</label>
-            <input type="text" id="details" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <input type="text" id="exp-details" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" placeholder="예: 메인무대 렌탈 및 설치">
           </div>
           <div class="space-y-1">
-            <label class="text-xs font-medium text-slate-500">구분</label>
-            <select id="category" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-              <option value="">선택 안함</option>
-              <option value="운영">운영</option>
+            <label class="text-xs font-medium text-slate-500">지출 구분 (GOCF 맞춤분류)</label>
+            <select id="exp-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+              <option value="시설대관">시설대관 (중도/사이트 등)</option>
+              <option value="설치물/렌탈">설치물/렌탈 (텐트/화장실/무대)</option>
+              <option value="인건비/외주">인건비/외주 (청소/경호 등)</option>
+              <option value="행정/보험">행정/보험 (보험/응급/의료)</option>
+              <option value="광고/마케팅">광고/마케팅 (홍보/인스타)</option>
+              <option value="제작/물품">제작/물품 (기프트/스태프복)</option>
+              <option value="운영비/식대">운영비/식대 (식대/물류/섭외)</option>
+              <option value="예비비/환불">예비비/환불</option>
               <option value="기타">기타</option>
             </select>
           </div>
           <div class="space-y-1">
-            <label class="text-xs font-medium text-slate-500">금액 (원) <span class="text-rose-500">*</span></label>
-            <input type="number" id="amount" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="0">
+            <label class="text-xs font-medium text-slate-500">지출 금액 (원) <span class="text-rose-500">*</span></label>
+            <input type="number" id="exp-amount" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" placeholder="0">
           </div>
           <div class="space-y-1">
             <label class="text-xs font-medium text-slate-500">세금계산서</label>
-            <select id="taxInvoice" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-              <option value="">선택 안함</option>
+            <select id="exp-taxInvoice" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
               <option value="수신">수신</option>
               <option value="미수신">미수신</option>
+              <option value="진행안함">진행안함</option>
             </select>
           </div>
           <div class="space-y-1">
             <label class="text-xs font-medium text-slate-500">은행명</label>
-            <input type="text" id="bank" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <input type="text" id="exp-bank" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
           </div>
           <div class="space-y-1">
             <label class="text-xs font-medium text-slate-500">계좌번호</label>
-            <input type="text" id="account" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <input type="text" id="exp-account" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
           </div>
           <div class="space-y-1">
             <label class="text-xs font-medium text-slate-500">예금주</label>
-            <input type="text" id="holder" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <input type="text" id="exp-holder" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
           </div>
           <div class="space-y-1 sm:col-span-2">
             <label class="text-xs font-medium text-slate-500">비고</label>
-            <input type="text" id="note" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <input type="text" id="exp-note" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
           </div>
         </div>
       </form>
-      
-      <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-        <button type="button" onclick="window.closeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors">취소</button>
-        <button type="submit" form="dataForm" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
-          <i data-lucide="save" class="w-4 h-4"></i> 저장하기
+      <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+        <button type="button" onclick="window.closeExpenseModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800">취소</button>
+        <button type="submit" form="expenseForm" class="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium shadow-sm">
+          <i data-lucide="check" class="w-4 h-4"></i> 지출 저장
         </button>
       </div>
     </div>
   </div>
 
+  <div id="incomeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 opacity-0 transition-opacity">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col transform scale-95 transition-transform" id="incomeModalContent">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50">
+        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="wallet" class="w-5 h-5 text-emerald-600"></i> 수입 내역 기록
+        </h3>
+        <button type="button" onclick="window.closeIncomeModal()" class="text-slate-400 hover:text-slate-600 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      
+      <form id="incomeForm" onsubmit="window.saveIncome(event)" class="p-6 space-y-4">
+        <input type="hidden" id="inc-editId">
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-500">수입 일자</label>
+          <input type="date" id="inc-date" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-500">수입 항목명 <span class="text-rose-500">*</span></label>
+          <input type="text" id="inc-title" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm" placeholder="예: 1차 얼리버드 티켓 수익">
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-500">수입 구분 (GOCF 맞춤분류)</label>
+          <select id="inc-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+            <option value="티켓 판매(캠핑/입장권)">티켓 판매(캠핑/입장권)</option>
+            <option value="부스/F&B 입점비">부스/F&B 입점비</option>
+            <option value="지자체 지원금">지자체 지원금</option>
+            <option value="기업 협찬/스폰서">기업 협찬/스폰서</option>
+            <option value="기타 수익">기타 수익</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-500">금액 (원) <span class="text-rose-500">*</span></label>
+          <input type="number" id="inc-amount" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm" placeholder="0">
+        </div>
+      </form>
+      <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+        <button type="button" onclick="window.closeIncomeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800">취소</button>
+        <button type="submit" form="incomeForm" class="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium shadow-sm">
+          <i data-lucide="check" class="w-4 h-4"></i> 수입 등록
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorOverlay" class="fixed inset-0 bg-white/90 backdrop-blur-sm hidden z-[100] items-center justify-center p-4"></div>
+
+  <!-- Firebase 및 핵심 로직 스크립트 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-analytics.js";
-    import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
+    // [속도 최적화] writeBatch (일괄 업로드 기능) 추가
+    import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAL3hN-HxDsYnJlzlda2C2lxWP_35gkeVw",
@@ -180,26 +372,23 @@
       projectId: "teamexpenses-d5d15",
       storageBucket: "teamexpenses-d5d15.firebasestorage.app",
       messagingSenderId: "355994869950",
-      appId: "1:355994869950:web:19223849b77e9a08de3eef",
-      measurementId: "G-887CTM7QDK"
+      appId: "1:355994869950:web:19223849b77e9a08de3eef"
     };
 
-    let app, analytics, db;
+    let app, db;
     try {
       app = initializeApp(firebaseConfig);
-      analytics = getAnalytics(app);
       db = getFirestore(app);
     } catch (e) {
       console.error("Firebase 초기화 에러:", e);
-      document.getElementById('syncStatus').innerText = "데이터베이스 설정 필요";
-      document.getElementById('statusBadge').className = "mt-4 sm:mt-0 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg text-sm font-medium flex items-center gap-2";
-      document.getElementById('statusDot').className = "w-2 h-2 bg-rose-500 rounded-full";
     }
 
     let globalExpenses = [];
-    const COLLECTION_NAME = "team_expenses";
+    let globalIncomes = [];
+    const EXPENSE_COLLECTION = "team_expenses";
+    const INCOME_COLLECTION = "team_incomes";
 
-    lucide.createIcons();
+    lucide.createIcons(); // 초기 정적 UI 렌더링에만 사용
 
     window.showToast = (message, type = 'success') => {
       const container = document.getElementById('toast-container');
@@ -222,204 +411,445 @@
       }, 3000);
     };
 
-    window.copyRulesToClipboard = () => {
-      const rules = `rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}`;
-      navigator.clipboard.writeText(rules).then(() => {
-        window.showToast('규칙이 복사되었습니다. 파이어베이스 콘솔에 붙여넣어주세요!', 'success');
-      }).catch(() => {
-        window.showToast('복사에 실패했습니다. 직접 복사해주세요.', 'error');
-      });
+    window.switchTab = (tabName) => {
+      document.getElementById('tab-dashboard').classList.remove('active');
+      document.getElementById('tab-expenses').classList.remove('active');
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+
+      const btnDash = document.getElementById('tabBtn-dashboard');
+      const btnExp = document.getElementById('tabBtn-expenses');
+      
+      if(tabName === 'dashboard') {
+        btnDash.className = "pb-3 text-blue-600 border-b-2 border-blue-600 font-bold text-base transition-colors flex items-center gap-2";
+        btnExp.className = "pb-3 text-slate-500 hover:text-slate-800 font-medium text-base transition-colors flex items-center gap-2";
+      } else {
+        btnExp.className = "pb-3 text-blue-600 border-b-2 border-blue-600 font-bold text-base transition-colors flex items-center gap-2";
+        btnDash.className = "pb-3 text-slate-500 hover:text-slate-800 font-medium text-base transition-colors flex items-center gap-2";
+      }
+    };
+
+    // [속도 최적화] 렌더링 지연 처리기 (Debounce with requestAnimationFrame)
+    let renderTimer = null;
+    const requestRender = () => {
+      if (renderTimer) cancelAnimationFrame(renderTimer);
+      renderTimer = requestAnimationFrame(renderAll);
     };
 
     if (db) {
-      const expensesRef = collection(db, COLLECTION_NAME);
-      
-      onSnapshot(expensesRef, (snapshot) => {
+      onSnapshot(collection(db, EXPENSE_COLLECTION), (snapshot) => {
         globalExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderTable();
-        
+        requestRender(); // 즉각 렌더링 대신 지연 렌더링 호출
+        updateConnectionStatus(true);
+      }, (error) => handleAuthError(error));
+
+      onSnapshot(collection(db, INCOME_COLLECTION), (snapshot) => {
+        globalIncomes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        requestRender();
+      }, (error) => console.log("수입 데이터 대기 중"));
+    }
+
+    const updateConnectionStatus = (isOk) => {
+      if(isOk) {
         document.getElementById('syncStatus').innerText = "실시간 동기화 중";
-        document.getElementById('statusBadge').className = "mt-4 sm:mt-0 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium flex items-center gap-2";
+        document.getElementById('statusBadge').className = "flex items-center gap-2";
         document.getElementById('statusDot').className = "w-2 h-2 bg-blue-500 rounded-full animate-pulse";
-      }, (error) => {
-        console.error("Firestore 접근 권한 에러:", error);
-        
-        document.getElementById('syncStatus').innerText = "데이터베이스 권한 오류";
-        document.getElementById('statusBadge').className = "mt-4 sm:mt-0 px-4 py-2 bg-rose-50 text-rose-700 rounded-lg text-sm font-medium flex items-center gap-2";
-        document.getElementById('statusDot').className = "w-2 h-2 bg-rose-500 rounded-full";
-        
-        document.getElementById('tableBody').innerHTML = `
-          <tr>
-            <td colspan="12" class="px-4 py-12 text-center">
-              <div class="inline-block text-left bg-rose-50 p-6 rounded-xl border border-rose-200 shadow-sm max-w-3xl w-full">
-                <div class="flex items-center gap-2 text-rose-600 font-bold text-xl mb-3">
-                  <i data-lucide="alert-triangle" class="w-7 h-7"></i>
-                  파이어베이스 데이터베이스 규칙 설정이 필요합니다.
-                </div>
-                <p class="text-slate-700 mb-6 text-base leading-relaxed">
-                  현재 작성된 코드에는 문제가 없으나, 구글 파이어베이스 서버의 기본 보안 설정이 데이터를 읽고 쓰는 것을 차단하고 있습니다.<br>
-                  아래 절차에 따라 데이터베이스 권한을 열어주시면 즉시 정상 작동합니다.
-                </p>
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <ol class="list-decimal pl-5 space-y-3 text-base text-slate-800">
-                    <li><a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 hover:underline font-bold">파이어베이스 콘솔(여기를 클릭)</a>에 접속하여 <b>teamexpenses-d5d15</b> 프로젝트를 엽니다.</li>
-                    <li>좌측 탭에서 <b>[Firestore Database]</b>를 클릭합니다.</li>
-                    <li>화면 상단의 <b>[규칙(Rules)]</b> 탭을 클릭합니다.</li>
-                    <li>아래 복사 버튼을 눌러 코드를 복사한 뒤, 화면에 있는 기존 코드를 모두 지우고 붙여넣습니다.
-                      <div class="relative mt-3">
-                        <pre class="bg-slate-800 p-4 rounded-lg border border-slate-700 text-sm text-emerald-400 font-mono overflow-x-auto">rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}</pre>
-                        <button onclick="window.copyRulesToClipboard()" class="absolute top-2 right-2 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1 backdrop-blur-sm">
-                          <i data-lucide="copy" class="w-3 h-3"></i> 복사하기
-                        </button>
-                      </div>
-                    </li>
-                    <li class="pt-2">코드 에디터 우측 상단의 <b class="text-blue-600">초록색 [게시(Publish)] 버튼</b>을 반드시 누릅니다.</li>
-                    <li>이제 현재 웹페이지를 <b>새로고침(F5)</b> 하시면 오류가 사라지고 정상적으로 내역 추가와 엑셀 업로드가 가능합니다.</li>
-                  </ol>
-                </div>
-              </div>
-            </td>
-          </tr>
-        `;
-        lucide.createIcons();
-      });
-    }
+      }
+    };
 
-    const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(amount || 0);
+    const handleAuthError = (error) => {
+      const overlay = document.getElementById('errorOverlay');
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      overlay.innerHTML = `
+        <div class="bg-white p-8 rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full text-center">
+          <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="lock" class="w-8 h-8"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-900 mb-2">데이터베이스가 잠겨있습니다</h2>
+          <p class="text-slate-600 mb-6">최초 1회, 파이어베이스 보안 규칙 해제가 필요합니다.</p>
+          <div class="text-left bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 text-sm text-slate-700">
+            1. <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 font-bold hover:underline">파이어베이스 콘솔</a> 접속<br>
+            2. Firestore Database -> [규칙] 탭 이동<br>
+            3. 아래 코드로 덮어쓰기 후 <b>[게시]</b> 클릭
+            <pre class="bg-slate-800 text-emerald-400 p-3 mt-2 rounded-lg font-mono">rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</pre>
+          </div>
+          <button onclick="window.location.reload()" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow hover:bg-blue-700 transition">설정 완료 후 새로고침</button>
+        </div>
+      `;
+      lucide.createIcons();
+    };
 
-    const renderTable = () => {
-      const tbody = document.getElementById('tableBody');
-      const sorted = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+    const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(Math.round(amount || 0));
+
+    // [속도 최적화] 무거운 lucide 아이콘을 가벼운 인라인 SVG 코드로 대체
+    const svgArrowUp = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>`;
+    const svgArrowDown = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>`;
+    const svgEdit = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`;
+    const svgTrash = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
+
+    // ==========================================
+    // 메인 렌더링 엔진
+    // ==========================================
+    const renderAll = () => {
+      const sortedExpenses = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+      const sortedIncomes = [...globalIncomes].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
       
-      let total = 0;
-      let html = '';
+      let totalExpense = 0;
+      let totalIncome = 0;
 
-      if (sorted.length === 0) {
-        html = `<tr><td colspan="12" class="px-4 py-12 text-center text-slate-500">등록된 지출 내역이 없습니다. (엑셀을 업로드 하거나 내역을 추가해 보세요)</td></tr>`;
+      // 1. 지출 표 그리기
+      let expHtml = '';
+      if (sortedExpenses.length === 0) {
+        expHtml = `<tr><td colspan="12" class="px-4 py-12 text-center text-slate-500">등록된 지출 내역이 없습니다.</td></tr>`;
       } else {
-        sorted.forEach((item, index) => {
-          total += Number(item.amount) || 0;
-          
-          html += `
-            <tr class="hover:bg-slate-50 transition-colors">
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <div class="flex flex-col">
-                    <button onclick="window.moveItem(${index}, 'up')" ${index === 0 ? 'disabled' : ''} class="text-slate-300 hover:text-blue-600 disabled:opacity-20 transition-colors"><i data-lucide="arrow-up" class="w-4 h-4"></i></button>
-                    <button onclick="window.moveItem(${index}, 'down')" ${index === sorted.length - 1 ? 'disabled' : ''} class="text-slate-300 hover:text-blue-600 disabled:opacity-20 transition-colors"><i data-lucide="arrow-down" class="w-4 h-4"></i></button>
-                  </div>
-                  <span class="font-medium text-slate-700 w-4 text-center">${item.no || ''}</span>
-                </div>
-              </td>
+        sortedExpenses.forEach((item, index) => {
+          totalExpense += Number(item.amount) || 0;
+          expHtml += `
+            <tr class="hover:bg-slate-50 border-b border-slate-50 last:border-0">
+              <td class="px-4 py-3"><div class="flex items-center gap-2"><div class="flex flex-col"><button onclick="window.moveItem(${index}, 'up')" ${index === 0 ? 'disabled' : ''} class="text-slate-300 hover:text-blue-600 disabled:opacity-20">${svgArrowUp}</button><button onclick="window.moveItem(${index}, 'down')" ${index === sortedExpenses.length - 1 ? 'disabled' : ''} class="text-slate-300 hover:text-blue-600 disabled:opacity-20">${svgArrowDown}</button></div><span class="w-4 text-center font-medium">${item.no || ''}</span></div></td>
               <td class="px-4 py-3 font-medium text-slate-900">${item.company || ''}</td>
-              <td class="px-4 py-3 truncate max-w-[250px]" title="${item.details || ''}">${item.details || ''}</td>
-              <td class="px-4 py-3"><span class="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-medium">${item.category || ''}</span></td>
+              <td class="px-4 py-3 truncate max-w-[200px]" title="${item.details || ''}">${item.details || ''}</td>
+              <td class="px-4 py-3"><span class="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-medium border border-slate-200">${item.category || '미분류'}</span></td>
               <td class="px-4 py-3 text-right font-medium text-slate-900">${formatCurrency(item.amount)}</td>
-              <td class="px-4 py-3">${item.taxInvoice || ''}</td>
-              <td class="px-4 py-3">${item.bank || ''}</td>
+              <td class="px-4 py-3 text-slate-500">${item.taxInvoice || ''}</td>
+              <td class="px-4 py-3 text-slate-500">${item.bank || ''}</td>
               <td class="px-4 py-3 text-slate-500">${item.account || ''}</td>
-              <td class="px-4 py-3 text-slate-700">${item.holder || ''}</td>
-              <td class="px-4 py-3">${item.date || ''}</td>
-              <td class="px-4 py-3 truncate max-w-[150px]" title="${item.note || ''}">${item.note || ''}</td>
+              <td class="px-4 py-3 text-slate-500">${item.holder || ''}</td>
+              <td class="px-4 py-3 text-slate-500">${item.date || ''}</td>
+              <td class="px-4 py-3 text-slate-500 truncate max-w-[150px]">${item.note || ''}</td>
               <td class="px-4 py-3 text-center">
-                <div class="flex justify-center items-center gap-2">
-                  <button onclick="window.editItem('${item.id}')" class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-                  <button onclick="window.deleteItem('${item.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
+                <button onclick="window.editExpense('${item.id}')" class="p-1 text-slate-400 hover:text-blue-600">${svgEdit}</button>
+                <button onclick="window.deleteExpense('${item.id}')" class="p-1 text-slate-400 hover:text-rose-600">${svgTrash}</button>
               </td>
             </tr>
           `;
         });
       }
+      document.getElementById('expenseTableBody').innerHTML = expHtml;
 
-      tbody.innerHTML = html;
-      document.getElementById('totalAmount').innerText = formatCurrency(total);
-      lucide.createIcons({ root: tbody });
+      // 2. 수입 표 그리기
+      let incHtml = '';
+      if (sortedIncomes.length === 0) {
+        incHtml = `<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-400">등록된 수입이 없습니다.</td></tr>`;
+      } else {
+        sortedIncomes.forEach((item) => {
+          totalIncome += Number(item.amount) || 0;
+          incHtml += `
+            <tr class="hover:bg-slate-50 border-b border-slate-50 last:border-0">
+              <td class="px-4 py-3 text-slate-500">${item.date || ''}</td>
+              <td class="px-4 py-3">
+                <div class="font-medium text-slate-900">${item.title || ''}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">${item.category || ''}</div>
+              </td>
+              <td class="px-4 py-3 text-right font-bold text-emerald-600">+${formatCurrency(item.amount)}</td>
+              <td class="px-4 py-3 text-center">
+                <button onclick="window.deleteIncome('${item.id}')" class="p-1 text-slate-300 hover:text-rose-600">${svgTrash}</button>
+              </td>
+            </tr>
+          `;
+        });
+      }
+      document.getElementById('incomeTableBody').innerHTML = incHtml;
+
+      // 3. 대시보드 및 BEP 스마트 알림 업데이트
+      const totalAmountEl = document.getElementById('totalAmount');
+      if(totalAmountEl) totalAmountEl.innerText = formatCurrency(totalExpense); 
+      
+      document.getElementById('kpi-income').innerText = formatCurrency(totalIncome) + '원';
+      document.getElementById('kpi-expense').innerText = formatCurrency(totalExpense) + '원';
+      
+      const netProfit = totalIncome - totalExpense;
+      const profitEl = document.getElementById('kpi-profit');
+      const profitIcon = document.getElementById('kpi-profit-icon');
+      
+      const bepBanner = document.getElementById('bep-banner');
+      const bepTitle = document.getElementById('bep-title');
+      const bepMessage = document.getElementById('bep-message');
+
+      if(netProfit > 0) {
+        profitEl.innerText = '+' + formatCurrency(netProfit) + '원';
+        profitEl.className = "text-2xl font-bold text-emerald-600 mt-2";
+        profitIcon.className = "p-2 bg-emerald-50 rounded-lg text-emerald-600";
+        
+        bepBanner.className = "bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors";
+        bepTitle.className = "font-bold text-emerald-800 text-lg";
+        bepTitle.innerText = "🎉 손익분기점 달성!";
+        bepMessage.innerHTML = `지금까지의 모든 지출을 회수하고 <b class="text-emerald-700">${formatCurrency(netProfit)}원</b>의 순수익을 기록하고 있습니다.`;
+        
+      } else if(netProfit < 0) {
+        profitEl.innerText = formatCurrency(netProfit) + '원';
+        profitEl.className = "text-2xl font-bold text-rose-600 mt-2";
+        profitIcon.className = "p-2 bg-rose-50 rounded-lg text-rose-600";
+        
+        bepBanner.className = "bg-rose-50 border border-rose-200 rounded-xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors";
+        bepTitle.className = "font-bold text-rose-800 text-lg";
+        bepTitle.innerText = "진행 상황 분석";
+        bepMessage.innerHTML = `현재 <b>적자</b> 구간입니다. 손익분기점(BEP)을 돌파하려면 <b class="text-rose-700">${formatCurrency(Math.abs(netProfit))}원</b>의 추가 수입이 더 필요합니다.`;
+        
+      } else {
+        profitEl.innerText = '0원';
+        profitEl.className = "text-2xl font-bold text-slate-900 mt-2";
+        profitIcon.className = "p-2 bg-slate-50 rounded-lg text-slate-600";
+        
+        bepBanner.className = "bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors";
+        bepTitle.className = "font-bold text-slate-800 text-lg";
+        bepTitle.innerText = "손익분기점(BEP) 분석";
+        bepMessage.innerHTML = totalExpense > 0 ? `손익분기점에 정확히 도달했습니다. 앞으로 발생하는 수입은 모두 순수익이 됩니다.` : `수입과 지출 내역을 입력하시면 손익분기점 달성 여부를 자동으로 분석해 드립니다.`;
+      }
+
+      // 프로그레스 바 계산
+      let beRatio = 0;
+      if (totalExpense > 0) {
+        beRatio = Math.min((totalIncome / totalExpense) * 100, 100);
+      } else if (totalIncome > 0) {
+        beRatio = 100;
+      }
+      
+      const bepPercentageEl = document.getElementById('be-percentage');
+      bepPercentageEl.innerText = beRatio.toFixed(1) + '% 달성';
+      if(beRatio >= 100) {
+        bepPercentageEl.className = "px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-sm font-bold border border-emerald-200";
+      } else {
+        bepPercentageEl.className = "px-2.5 py-0.5 bg-white text-slate-700 rounded-md text-sm font-bold shadow-sm border border-slate-200";
+      }
+
+      const progressEl = document.getElementById('be-progress');
+      progressEl.style.width = beRatio + '%';
+      if(beRatio >= 100) {
+        progressEl.className = "bg-emerald-500 h-2 rounded-full transition-all duration-1000 ease-out";
+      } else if (beRatio > 0) {
+        progressEl.className = "bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out";
+      } else {
+        progressEl.className = "bg-slate-400 h-2 rounded-full transition-all duration-1000 ease-out";
+      }
+
+      // 4. 수입 카테고리별 요약
+      const incCategoryTotals = {};
+      sortedIncomes.forEach(item => {
+        const cat = item.category || '기타 수익';
+        incCategoryTotals[cat] = (incCategoryTotals[cat] || 0) + (Number(item.amount) || 0);
+      });
+      const sortedIncCategories = Object.entries(incCategoryTotals).sort((a,b) => b[1] - a[1]);
+      
+      let incSummaryHtml = '';
+      if(sortedIncCategories.length === 0) {
+        incSummaryHtml = `<div class="flex items-center justify-center h-full text-slate-400 text-sm">수입 내역이 없습니다.</div>`;
+      } else {
+        sortedIncCategories.forEach(([cat, amount]) => {
+          const ratio = totalIncome > 0 ? (amount / totalIncome) * 100 : 0;
+          incSummaryHtml += `
+            <div>
+              <div class="flex justify-between text-sm mb-1.5">
+                <span class="font-medium text-slate-700">${cat}</span>
+                <span class="font-bold text-slate-900">${formatCurrency(amount)}원 <span class="text-xs text-slate-400 font-normal ml-1">(${ratio.toFixed(1)}%)</span></span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-1.5">
+                <div class="bg-emerald-400 h-1.5 rounded-full" style="width: ${ratio}%"></div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      document.getElementById('incomeSummaryBody').innerHTML = incSummaryHtml;
+
+      // 5. 지출 카테고리별 요약
+      const expCategoryTotals = {};
+      sortedExpenses.forEach(item => {
+        const cat = item.category || '기타';
+        expCategoryTotals[cat] = (expCategoryTotals[cat] || 0) + (Number(item.amount) || 0);
+      });
+      const sortedExpCategories = Object.entries(expCategoryTotals).sort((a,b) => b[1] - a[1]);
+      
+      let expSummaryHtml = '';
+      if(sortedExpCategories.length === 0) {
+        expSummaryHtml = `<div class="flex items-center justify-center h-full text-slate-400 text-sm">지출 내역이 없습니다.</div>`;
+      } else {
+        sortedExpCategories.forEach(([cat, amount]) => {
+          const ratio = totalExpense > 0 ? (amount / totalExpense) * 100 : 0;
+          expSummaryHtml += `
+            <div>
+              <div class="flex justify-between text-sm mb-1.5">
+                <span class="font-medium text-slate-700">${cat}</span>
+                <span class="font-bold text-slate-900">${formatCurrency(amount)}원 <span class="text-xs text-slate-400 font-normal ml-1">(${ratio.toFixed(1)}%)</span></span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-1.5">
+                <div class="bg-rose-400 h-1.5 rounded-full" style="width: ${ratio}%"></div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      document.getElementById('expenseSummaryBody').innerHTML = expSummaryHtml;
     };
 
-    window.saveData = async (e) => {
+    // ==========================================
+    // 지출 관리 CRUD
+    // ==========================================
+    window.saveExpense = async (e) => {
       e.preventDefault();
-      if (!db) return window.showToast('데이터베이스가 연결되지 않았습니다.', 'error');
+      if (!db) return window.showToast('DB 연결 안됨', 'error');
 
-      const id = document.getElementById('editId').value;
-      const amount = Number(document.getElementById('amount').value) || 0;
+      const id = document.getElementById('exp-editId').value;
+      let no = document.getElementById('exp-no').value;
       
-      let no = document.getElementById('no').value;
       if (!no && !id) {
-        const maxNo = globalExpenses.reduce((max, item) => {
-          const num = Number(item.no);
-          return !isNaN(num) && num > max ? num : max;
-        }, 0);
+        const maxNo = globalExpenses.reduce((max, item) => Math.max(max, Number(item.no) || 0), 0);
         no = String(maxNo + 1);
       }
 
       const data = {
-        no, amount,
-        company: document.getElementById('company').value,
-        details: document.getElementById('details').value,
-        category: document.getElementById('category').value,
-        taxInvoice: document.getElementById('taxInvoice').value,
-        bank: document.getElementById('bank').value,
-        account: document.getElementById('account').value,
-        holder: document.getElementById('holder').value,
-        date: document.getElementById('date').value,
-        note: document.getElementById('note').value,
+        no,
+        amount: Number(document.getElementById('exp-amount').value) || 0,
+        company: document.getElementById('exp-company').value,
+        details: document.getElementById('exp-details').value,
+        category: document.getElementById('exp-category').value || '기타',
+        taxInvoice: document.getElementById('exp-taxInvoice').value,
+        bank: document.getElementById('exp-bank').value,
+        account: document.getElementById('exp-account').value,
+        holder: document.getElementById('exp-holder').value,
+        date: document.getElementById('exp-date').value,
+        note: document.getElementById('exp-note').value,
         updatedAt: new Date().toISOString()
       };
 
       try {
         if (id) {
-          await updateDoc(doc(db, COLLECTION_NAME, id), data);
-          window.showToast('수정되었습니다.');
+          await updateDoc(doc(db, EXPENSE_COLLECTION, id), data);
+          window.showToast('지출이 수정되었습니다.');
         } else {
           data.createdAt = new Date().toISOString();
-          await addDoc(collection(db, COLLECTION_NAME), data);
-          window.showToast('추가되었습니다.');
+          await addDoc(collection(db, EXPENSE_COLLECTION), data);
+          window.showToast('지출이 추가되었습니다.');
         }
-        window.closeModal();
-      } catch (err) {
-        window.showToast('데이터베이스 권한이 없어 저장할 수 없습니다.', 'error');
-        console.error(err);
-      }
+        window.closeExpenseModal();
+      } catch (err) { window.showToast('권한 에러. 콘솔 설정 확인 필요', 'error'); }
     };
 
-    window.deleteItem = async (id) => {
-      if (!confirm('정말 삭제하시겠습니까?')) return;
+    window.deleteExpense = async (id) => {
+      if (!confirm('지출 내역을 삭제하시겠습니까?')) return;
       try {
-        await deleteDoc(doc(db, COLLECTION_NAME, id));
+        await deleteDoc(doc(db, EXPENSE_COLLECTION, id));
         window.showToast('삭제되었습니다.');
-      } catch (err) {
-        window.showToast('데이터베이스 권한이 없어 삭제할 수 없습니다.', 'error');
-      }
+      } catch (err) { window.showToast('삭제 실패', 'error'); }
     };
+
+    // ==========================================
+    // 수입 관리 CRUD
+    // ==========================================
+    window.saveIncome = async (e) => {
+      e.preventDefault();
+      if (!db) return;
+
+      const data = {
+        date: document.getElementById('inc-date').value,
+        title: document.getElementById('inc-title').value,
+        category: document.getElementById('inc-category').value,
+        amount: Number(document.getElementById('inc-amount').value) || 0,
+        createdAt: new Date().toISOString()
+      };
+
+      try {
+        await addDoc(collection(db, INCOME_COLLECTION), data);
+        window.showToast('수입이 등록되었습니다.', 'success');
+        window.closeIncomeModal();
+      } catch (err) { window.showToast('저장 실패', 'error'); }
+    };
+
+    window.deleteIncome = async (id) => {
+      if (!confirm('이 수입 내역을 삭제하시겠습니까?')) return;
+      try {
+        await deleteDoc(doc(db, INCOME_COLLECTION, id));
+        window.showToast('수입 내역이 삭제되었습니다.');
+      } catch(e) { window.showToast('삭제 실패', 'error'); }
+    };
+
+    // ==========================================
+    // 모달 및 기타 UI 제어
+    // ==========================================
+    const openModalUI = (modalId, contentId) => {
+      const m = document.getElementById(modalId);
+      const c = document.getElementById(contentId);
+      m.classList.remove('hidden'); m.classList.add('flex');
+      requestAnimationFrame(() => { m.classList.remove('opacity-0'); c.classList.remove('scale-95'); });
+    };
+    const closeModalUI = (modalId, contentId) => {
+      const m = document.getElementById(modalId);
+      const c = document.getElementById(contentId);
+      m.classList.add('opacity-0'); c.classList.add('scale-95');
+      setTimeout(() => { m.classList.remove('flex'); m.classList.add('hidden'); }, 300);
+    };
+
+    window.openExpenseModal = () => {
+      document.getElementById('expenseForm').reset();
+      document.getElementById('exp-editId').value = '';
+      document.getElementById('expenseModalTitle').innerHTML = '<i data-lucide="receipt" class="w-5 h-5 text-blue-600"></i> 새 지출 내역 추가';
+      lucide.createIcons();
+      document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+      openModalUI('expenseModal', 'expenseModalContent');
+    };
+
+    window.editExpense = (id) => {
+      const item = globalExpenses.find(ex => ex.id === id);
+      if(!item) return;
+      document.getElementById('exp-editId').value = item.id;
+      document.getElementById('exp-no').value = item.no || '';
+      document.getElementById('exp-company').value = item.company || '';
+      document.getElementById('exp-details').value = item.details || '';
+      document.getElementById('exp-category').value = item.category || '행정/운영';
+      document.getElementById('exp-amount').value = item.amount || '';
+      document.getElementById('exp-taxInvoice').value = item.taxInvoice || '';
+      document.getElementById('exp-bank').value = item.bank || '';
+      document.getElementById('exp-account').value = item.account || '';
+      document.getElementById('exp-holder').value = item.holder || '';
+      document.getElementById('exp-date').value = item.date || '';
+      document.getElementById('exp-note').value = item.note || '';
+      document.getElementById('expenseModalTitle').innerHTML = '<i data-lucide="edit" class="w-5 h-5 text-blue-600"></i> 지출 내역 수정';
+      lucide.createIcons();
+      openModalUI('expenseModal', 'expenseModalContent');
+    };
+    window.closeExpenseModal = () => closeModalUI('expenseModal', 'expenseModalContent');
+
+    window.openIncomeModal = () => {
+      document.getElementById('incomeForm').reset();
+      document.getElementById('inc-date').value = new Date().toISOString().split('T')[0];
+      openModalUI('incomeModal', 'incomeModalContent');
+    };
+    window.closeIncomeModal = () => closeModalUI('incomeModal', 'incomeModalContent');
 
     window.moveItem = async (index, direction) => {
       const sorted = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
       const newIndex = direction === 'up' ? index - 1 : index + 1;
-      
-      const currentItem = sorted[index];
-      const targetItem = sorted[newIndex];
+      const currentItem = sorted[index]; const targetItem = sorted[newIndex];
       if (!currentItem || !targetItem) return;
-
       try {
-        await updateDoc(doc(db, COLLECTION_NAME, currentItem.id), { no: targetItem.no });
-        await updateDoc(doc(db, COLLECTION_NAME, targetItem.id), { no: currentItem.no });
-      } catch (err) {
-        window.showToast('순서 변경 실패', 'error');
-      }
+        await updateDoc(doc(db, EXPENSE_COLLECTION, currentItem.id), { no: targetItem.no });
+        await updateDoc(doc(db, EXPENSE_COLLECTION, targetItem.id), { no: currentItem.no });
+      } catch (err) {}
+    };
+
+    window.copyShareLink = () => {
+      navigator.clipboard.writeText(window.location.href).then(() => window.showToast('링크 복사 완료')).catch(() => window.showToast('복사 실패', 'error'));
+    };
+
+    // ==========================================
+    // [속도 최적화] 일괄 업로드(Batch Write) 시스템
+    // ==========================================
+    window.handleExport = () => {
+      const sorted = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+      const exportData = sorted.map(item => ({
+        'No.': item.no, '업체명': item.company, '내역': item.details, '구분(카테고리)': item.category,
+        '금액': item.amount, '세금계산서': item.taxInvoice, '은행명': item.bank,
+        '계좌번호': item.account, '예금주': item.holder, '출금일자': item.date, '비고': item.note
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "지출내역");
+      XLSX.writeFile(wb, `2026_GOCF_지출내역_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     window.handleFileUpload = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
       try {
         const reader = new FileReader();
         reader.onload = async (event) => {
@@ -429,126 +859,137 @@ service cloud.firestore {
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
           let headerRowIndex = jsonData.findIndex(row => row && row.includes('No.') && row.includes('업체명'));
-          if (headerRowIndex === -1) return window.showToast('지원하지 않는 양식입니다.', 'error');
+          if (headerRowIndex === -1) return window.showToast('지원하지 않는 양식', 'error');
 
           const headers = jsonData[headerRowIndex];
           const rows = jsonData.slice(headerRowIndex + 1);
+          let added = 0, dup = 0;
+          
+          // Firestore 일괄 쓰기(Batch) 객체 생성
+          let batch = writeBatch(db);
+          let batchCount = 0;
 
-          const expensesToAdd = [];
-          let duplicateCount = 0;
-
-          rows.forEach(row => {
+          for(const row of rows) {
             const getVal = col => row[headers.indexOf(col)] || '';
             const item = {
-              no: String(getVal('No.')),
-              company: getVal('업체명'),
-              details: getVal('내역'),
-              category: getVal('구분'),
-              amount: Number(getVal('금액')) || 0,
-              taxInvoice: getVal('세금계산서'),
-              bank: getVal('은행명'),
-              account: getVal('계좌번호'),
-              holder: getVal('예금주'),
-              date: getVal('출금일자'),
-              note: getVal('비고'),
+              no: String(getVal('No.')), company: getVal('업체명'), details: getVal('내역'),
+              category: getVal('구분(카테고리)') || getVal('구분') || '기타', amount: Number(getVal('금액')) || 0,
+              taxInvoice: getVal('세금계산서'), bank: getVal('은행명'), account: getVal('계좌번호'),
+              holder: getVal('예금주'), date: getVal('출금일자'), note: getVal('비고'),
               createdAt: new Date().toISOString()
             };
+            if (!item.company && !item.amount) continue;
 
-            if (!item.company && !item.amount) return;
+            const isDuplicate = globalExpenses.some(ex => ex.company === item.company && Number(ex.amount) === item.amount && ex.date === item.date);
+            
+            if (isDuplicate) {
+              dup++;
+            } else { 
+              const newDocRef = doc(collection(db, EXPENSE_COLLECTION));
+              batch.set(newDocRef, item); 
+              added++;
+              batchCount++;
 
-            const isDuplicate = globalExpenses.some(ex => 
-              ex.company === item.company && ex.details === item.details &&
-              Number(ex.amount) === item.amount && ex.date === item.date
-            );
+              // Firestore는 한번에 최대 500개까지만 일괄 처리가 가능하므로 분할 전송
+              if (batchCount === 450) {
+                await batch.commit();
+                batch = writeBatch(db);
+                batchCount = 0;
+              }
+            }
+          }
+          
+          // 남은 데이터 전송
+          if (batchCount > 0) {
+            await batch.commit();
+          }
 
-            if (isDuplicate) duplicateCount++;
-            else expensesToAdd.push(item);
-          });
-
-          for (const item of expensesToAdd) await addDoc(collection(db, COLLECTION_NAME), item);
-
-          let msg = expensesToAdd.length > 0 ? `${expensesToAdd.length}건 추가됨.` : '추가할 새 데이터가 없습니다.';
-          if (duplicateCount > 0) msg += ` (중복 ${duplicateCount}건 제외)`;
-          window.showToast(msg, expensesToAdd.length > 0 ? 'success' : 'info');
+          window.showToast(`${added}건 일괄 추가됨 (중복 ${dup}건 제외)`);
           e.target.value = '';
         };
         reader.readAsArrayBuffer(file);
-      } catch (err) {
-        window.showToast('권한 문제로 업로드할 수 없습니다.', 'error');
-      }
+      } catch (err) { window.showToast('업로드 실패', 'error'); }
     };
 
-    window.handleExport = () => {
-      const sorted = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
+    // 수입 엑셀 다운로드/업로드
+    window.handleIncomeExport = () => {
+      const sorted = [...globalIncomes].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      if (sorted.length === 0) return window.showToast('다운로드할 수입 내역이 없습니다.', 'error');
+
       const exportData = sorted.map(item => ({
-        'No.': item.no, '업체명': item.company, '내역': item.details, '구분': item.category,
-        '금액': item.amount, '세금계산서': item.taxInvoice, '은행명': item.bank,
-        '계좌번호': item.account, '예금주': item.holder, '출금일자': item.date, '비고': item.note
+        '수입일자': item.date,
+        '수입항목': item.title,
+        '수입카테고리': item.category,
+        '금액': item.amount
       }));
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "지출내역");
-      XLSX.writeFile(wb, `팀지출내역_${new Date().toISOString().split('T')[0]}.xlsx`);
-      window.showToast('엑셀이 다운로드되었습니다.');
+      XLSX.utils.book_append_sheet(wb, ws, "수입내역");
+      XLSX.writeFile(wb, `2026_GOCF_수입내역_${new Date().toISOString().split('T')[0]}.xlsx`);
+      window.showToast('수입 내역 엑셀이 다운로드 되었습니다.');
     };
 
-    const modal = document.getElementById('modal');
-    const modalContent = document.getElementById('modalContent');
-    
-    window.openModal = () => {
-      document.getElementById('dataForm').reset();
-      document.getElementById('editId').value = '';
-      document.getElementById('modalTitle').innerText = '새 지출 내역 추가';
-      
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      requestAnimationFrame(() => {
-        modal.classList.remove('opacity-0');
-        modalContent.classList.remove('scale-95');
-      });
-    };
+    window.handleIncomeFileUpload = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-    window.editItem = (id) => {
-      const item = globalExpenses.find(ex => ex.id === id);
-      if(!item) return;
-      
-      document.getElementById('editId').value = item.id;
-      document.getElementById('no').value = item.no || '';
-      document.getElementById('company').value = item.company || '';
-      document.getElementById('details').value = item.details || '';
-      document.getElementById('category').value = item.category || '';
-      document.getElementById('amount').value = item.amount || '';
-      document.getElementById('taxInvoice').value = item.taxInvoice || '';
-      document.getElementById('bank').value = item.bank || '';
-      document.getElementById('account').value = item.account || '';
-      document.getElementById('holder').value = item.holder || '';
-      document.getElementById('date').value = item.date || '';
-      document.getElementById('note').value = item.note || '';
-      
-      document.getElementById('modalTitle').innerText = '지출 내역 수정';
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      requestAnimationFrame(() => {
-        modal.classList.remove('opacity-0');
-        modalContent.classList.remove('scale-95');
-      });
-    };
+          let headerRowIndex = jsonData.findIndex(row => row && row.includes('수입항목') && row.includes('금액'));
+          if (headerRowIndex === -1) {
+            return window.showToast('양식이 맞지 않습니다. (수입항목, 금액 헤더 필수)', 'error');
+          }
 
-    window.closeModal = () => {
-      modal.classList.add('opacity-0');
-      modalContent.classList.add('scale-95');
-      setTimeout(() => {
-        modal.classList.remove('flex');
-        modal.classList.add('hidden');
-      }, 300);
-    };
+          const headers = jsonData[headerRowIndex];
+          const rows = jsonData.slice(headerRowIndex + 1);
+          let added = 0, dup = 0;
+          
+          let batch = writeBatch(db);
+          let batchCount = 0;
 
-    window.copyShareLink = () => {
-      navigator.clipboard.writeText(window.location.href).then(() => {
-        window.showToast('링크가 복사되었습니다.');
-      }).catch(() => {
-        window.showToast('주소창의 링크를 직접 복사해주세요.', 'error');
-      });
+          for(const row of rows) {
+            const getVal = col => row[headers.indexOf(col)] || '';
+            const item = {
+              date: getVal('수입일자') || new Date().toISOString().split('T')[0],
+              title: getVal('수입항목'),
+              category: getVal('수입카테고리') || getVal('카테고리') || '기타 수익',
+              amount: Number(getVal('금액')) || 0,
+              createdAt: new Date().toISOString()
+            };
+            if (!item.title && !item.amount) continue;
+
+            const isDuplicate = globalIncomes.some(inc => inc.title === item.title && Number(inc.amount) === item.amount && inc.date === item.date);
+            
+            if (isDuplicate) {
+              dup++;
+            } else { 
+              const newDocRef = doc(collection(db, INCOME_COLLECTION));
+              batch.set(newDocRef, item);
+              added++;
+              batchCount++;
+
+              if (batchCount === 450) {
+                await batch.commit();
+                batch = writeBatch(db);
+                batchCount = 0;
+              }
+            }
+          }
+
+          if (batchCount > 0) {
+            await batch.commit();
+          }
+
+          window.showToast(`수입 ${added}건 일괄 추가 (중복 ${dup}건 제외)`);
+          e.target.value = '';
+        };
+        reader.readAsArrayBuffer(file);
+      } catch (err) { window.showToast('수입 업로드 실패', 'error'); }
     };
   </script>
 </body>
