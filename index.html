@@ -120,7 +120,6 @@
               <i data-lucide="wallet" class="w-4 h-4 text-emerald-600"></i> 수입 내역
             </h3>
             <div class="flex items-center gap-1.5">
-              <!-- 수입 정렬 선택 옵션 -->
               <select id="incomeSortSelect" onchange="window.changeIncomeSort(this.value)" class="text-xs border border-slate-200 rounded-md px-2 py-1.5 text-slate-600 bg-white focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none cursor-pointer hover:bg-slate-50 transition-colors">
                 <option value="dateDesc">수입일 최신순</option>
                 <option value="amountDesc">금액 높은순</option>
@@ -240,7 +239,7 @@
     </div>
   </div>
 
-  <!-- 모달 영역 생략 없이 전체 포함 -->
+  <!-- 모달 영역 -->
   <div id="expenseModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 opacity-0 transition-opacity">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col transform scale-95 transition-transform" id="expenseModalContent">
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
@@ -270,16 +269,15 @@
             <input type="text" id="exp-details" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" placeholder="예: 메인무대 렌탈 및 설치">
           </div>
           <div class="space-y-1">
-            <label class="text-xs font-medium text-slate-500">지출 구분 (GOCF 맞춤분류)</label>
+            <label class="text-xs font-medium text-slate-500">지출 구분</label>
+            <!-- 업데이트된 GOCF 맞춤 분류 -->
             <select id="exp-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
-              <option value="시설대관">시설대관 (중도/사이트 등)</option>
-              <option value="설치물/렌탈">설치물/렌탈 (텐트/화장실/무대)</option>
-              <option value="인건비/외주">인건비/외주 (청소/경호 등)</option>
-              <option value="행정/보험">행정/보험 (보험/응급/의료)</option>
-              <option value="광고/마케팅">광고/마케팅 (홍보/인스타)</option>
-              <option value="제작/물품">제작/물품 (기프트/스태프복)</option>
-              <option value="운영비/식대">운영비/식대 (식대/물류/섭외)</option>
-              <option value="예비비/환불">예비비/환불</option>
+              <option value="대관">대관</option>
+              <option value="설치">설치</option>
+              <option value="인력">인력</option>
+              <option value="행정">행정</option>
+              <option value="광고">광고</option>
+              <option value="운영">운영</option>
               <option value="기타">기타</option>
             </select>
           </div>
@@ -342,7 +340,7 @@
           <input type="text" id="inc-title" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm" placeholder="예: 1차 얼리버드 티켓 수익">
         </div>
         <div class="space-y-1">
-          <label class="text-xs font-medium text-slate-500">수입 구분 (GOCF 맞춤분류)</label>
+          <label class="text-xs font-medium text-slate-500">수입 구분</label>
           <select id="inc-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
             <option value="티켓 판매(캠핑/입장권)">티켓 판매(캠핑/입장권)</option>
             <option value="부스/F&B 입점비">부스/F&B 입점비</option>
@@ -391,7 +389,7 @@
 
     let globalExpenses = [];
     let globalIncomes = [];
-    let currentIncomeSort = 'dateDesc'; // 수입 내역 정렬 상태 변수
+    let currentIncomeSort = 'dateDesc'; 
     const EXPENSE_COLLECTION = "team_expenses";
     const INCOME_COLLECTION = "team_incomes";
 
@@ -435,7 +433,6 @@
       }
     };
 
-    // 정렬 방식 변경 이벤트 함수
     window.changeIncomeSort = (val) => {
       currentIncomeSort = val;
       requestRender();
@@ -530,15 +527,10 @@
     const renderAll = () => {
       const sortedExpenses = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
       
-      // 수입 내역 정렬 로직 적용
       const sortedIncomes = [...globalIncomes].sort((a, b) => {
-        if (currentIncomeSort === 'amountDesc') {
-          return (Number(b.amount) || 0) - (Number(a.amount) || 0);
-        } else if (currentIncomeSort === 'amountAsc') {
-          return (Number(a.amount) || 0) - (Number(b.amount) || 0);
-        } else {
-          return new Date(b.date || 0) - new Date(a.date || 0); // 기본값: 최신순
-        }
+        if (currentIncomeSort === 'amountDesc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+        if (currentIncomeSort === 'amountAsc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
+        return new Date(b.date || 0) - new Date(a.date || 0);
       });
       
       let totalExpense = 0;
@@ -554,7 +546,7 @@
           expHtml += `
             <tr class="hover:bg-slate-50 border-b border-slate-50 last:border-0">
               <td class="px-4 py-3"><div class="flex items-center gap-2"><div class="flex flex-col"><button onclick="window.moveItem(${index}, 'up')" ${index === 0 ? 'disabled' : ''} class="text-slate-300 hover:text-blue-600 disabled:opacity-20">${svgArrowUp}</button><button onclick="window.moveItem(${index}, 'down')" ${index === sortedExpenses.length - 1 ? 'disabled' : ''} class="text-slate-300 hover:text-blue-600 disabled:opacity-20">${svgArrowDown}</button></div><span class="w-4 text-center font-medium">${item.no || ''}</span></div></td>
-              <td class="px-4 py-3"><span class="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-medium border border-slate-200">${item.category || '미분류'}</span></td>
+              <td class="px-4 py-3"><span class="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-medium border border-slate-200">${item.category || '기타'}</span></td>
               <td class="px-4 py-3">
                 <div class="font-medium text-slate-900">${item.company || '-'}</div>
                 <div class="text-[11px] text-slate-500 mt-0.5 truncate max-w-[300px]" title="${item.details || ''}">${item.details || ''}</div>
@@ -576,7 +568,6 @@
       if (sortedIncomes.length === 0) {
         incHtml = `<tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-400">등록된 수입이 없습니다.</td></tr>`;
       } else {
-        // 총 수입 합계를 위해 전체 배열 사용 (정렬과 무관하게 합계 계산)
         globalIncomes.forEach(item => {
           totalIncome += Number(item.amount) || 0;
         });
@@ -919,7 +910,7 @@
       document.getElementById('exp-no').value = item.no || '';
       document.getElementById('exp-company').value = item.company || '';
       document.getElementById('exp-details').value = item.details || '';
-      document.getElementById('exp-category').value = item.category || '행정/운영';
+      document.getElementById('exp-category').value = item.category || '기타';
       document.getElementById('exp-amount').value = item.amount || '';
       document.getElementById('exp-taxInvoice').value = item.taxInvoice || '';
       document.getElementById('exp-bank').value = item.bank || '';
@@ -983,7 +974,6 @@
         const reader = new FileReader();
         reader.onload = async (event) => {
           const data = new Uint8Array(event.target.result);
-          // cellDates 옵션을 적용하여 엑셀 내부의 날짜, 숫자, 텍스트 형태를 완벽하게 대응합니다.
           const workbook = XLSX.read(data, { type: 'array', cellDates: true });
           const worksheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
@@ -1018,7 +1008,6 @@
             };
             if (!item.company && !item.amount) continue;
 
-            // 지출 데이터 중복/수정 판별 (No. 기준 또는 내용 기준)
             let existingItem = null;
             if (item.no) {
               existingItem = globalExpenses.find(ex => ex.no === item.no);
@@ -1027,7 +1016,6 @@
             }
 
             if (existingItem) {
-              // 완전히 동일한지 확인
               const isIdentical = existingItem.company === item.company && Number(existingItem.amount) === item.amount && 
                                   existingItem.details === item.details && existingItem.category === item.category &&
                                   existingItem.taxInvoice === item.taxInvoice && existingItem.bank === item.bank && 
@@ -1068,7 +1056,6 @@
     };
 
     window.handleIncomeExport = () => {
-      // 엑셀 다운로드 시에도 현재 선택된 정렬 방식 유지
       const sorted = [...globalIncomes].sort((a, b) => {
         if (currentIncomeSort === 'amountDesc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
         if (currentIncomeSort === 'amountAsc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
@@ -1096,7 +1083,6 @@
         const reader = new FileReader();
         reader.onload = async (event) => {
           const data = new Uint8Array(event.target.result);
-          // cellDates 옵션을 적용하여 엑셀 내부의 날짜 서식을 Date 객체로 읽어옵니다.
           const workbook = XLSX.read(data, { type: 'array', cellDates: true });
           const worksheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
@@ -1117,7 +1103,7 @@
             const getVal = col => row[headers.indexOf(col)];
             
             const rawDate = getVal('수입일시') !== undefined ? getVal('수입일시') : getVal('수입일자');
-            let parsedDate = parseExcelDate(rawDate, true); // true: 시간 포함 파싱
+            let parsedDate = parseExcelDate(rawDate, true);
             
             if(!parsedDate) {
               const today = new Date();
