@@ -65,54 +65,43 @@
     <!-- ========================================== -->
     <div id="tab-dashboard" class="tab-content active">
       
-      <!-- 핵심 KPI 카드 (4단계로 확장) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <!-- 1. 총 매출액 (수수료 포함 전체) -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden group hover:shadow-md transition-shadow">
-          <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i data-lucide="banknote" class="w-12 h-12 text-slate-900"></i>
-          </div>
-          <div class="flex justify-between items-start relative z-10">
-            <h3 class="text-sm font-bold text-slate-500">총 매출액 <span class="text-xs font-normal text-slate-400">(수수료 포함)</span></h3>
-          </div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-2 relative z-10" id="kpi-gross-income">0원</div>
-        </div>
-        
-        <!-- 2. 공제후 실수입 -->
+      <!-- 핵심 KPI 카드 (3단계 직관적 구조로 복구) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <!-- 1. 총 수입 -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden group hover:shadow-md transition-shadow">
           <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <i data-lucide="trending-up" class="w-12 h-12 text-emerald-600"></i>
           </div>
           <div class="flex justify-between items-start relative z-10">
-            <h3 class="text-sm font-bold text-slate-500">실 수입액 <span class="text-xs font-normal text-slate-400">(수수료 공제 후)</span></h3>
+            <h3 class="text-sm font-bold text-slate-500">총 수입 (Income)</h3>
           </div>
-          <div class="text-2xl font-extrabold text-emerald-600 mt-2 relative z-10" id="kpi-net-income">0원</div>
+          <div class="text-2xl font-extrabold text-emerald-600 mt-2 relative z-10" id="kpi-income">0원</div>
         </div>
 
-        <!-- 3. 총 지출액 -->
+        <!-- 2. 총 지출액 -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden group hover:shadow-md transition-shadow">
           <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <i data-lucide="trending-down" class="w-12 h-12 text-rose-600"></i>
           </div>
           <div class="flex justify-between items-start relative z-10">
-            <h3 class="text-sm font-bold text-slate-500">총 지출액</h3>
+            <h3 class="text-sm font-bold text-slate-500">총 지출 (Expense)</h3>
           </div>
           <div class="text-2xl font-extrabold text-rose-600 mt-2 relative z-10" id="kpi-expense">0원</div>
         </div>
         
-        <!-- 4. 현재 손익 -->
+        <!-- 3. 현재 손익 -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden group hover:shadow-md transition-shadow" id="kpi-profit-card">
           <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity" id="kpi-profit-icon-bg">
             <i data-lucide="wallet" class="w-12 h-12 text-slate-900"></i>
           </div>
           <div class="flex justify-between items-start relative z-10">
-            <h3 class="text-sm font-bold text-slate-500">종합 손익 <span class="text-xs font-normal text-slate-400">(실수입 - 총지출)</span></h3>
+            <h3 class="text-sm font-bold text-slate-500">현재 손익 (Net Profit)</h3>
           </div>
           <div class="text-2xl font-extrabold text-slate-900 mt-2 relative z-10" id="kpi-profit">0원</div>
         </div>
       </div>
 
-      <!-- 손익분기점(BEP) 스마트 알림판 (디자인 고도화) -->
+      <!-- 손익분기점(BEP) 스마트 알림판 -->
       <div id="bep-banner" class="rounded-2xl p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 transition-all duration-500 shadow-sm border">
         <div class="flex-1">
           <div class="flex items-center gap-3 mb-1.5">
@@ -145,8 +134,8 @@
               <!-- 수입 정렬 선택 옵션 -->
               <select id="incomeSortSelect" onchange="window.changeIncomeSort(this.value)" class="text-xs font-medium border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-600 bg-white focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
                 <option value="dateDesc">수입일 최신순</option>
-                <option value="amountDesc">실수입 높은순</option>
-                <option value="amountAsc">실수입 낮은순</option>
+                <option value="amountDesc">금액 높은순</option>
+                <option value="amountAsc">금액 낮은순</option>
               </select>
               <div class="w-px h-4 bg-slate-200 mx-1.5"></div>
               <input type="file" id="incomeExcelUpload" accept=".xlsx, .xls, .csv" class="hidden" onchange="window.handleIncomeFileUpload(event)" />
@@ -170,10 +159,8 @@
               <thead class="text-slate-500 sticky top-0 bg-white shadow-sm z-10 text-xs uppercase tracking-wider font-bold">
                 <tr>
                   <th class="px-5 py-3 border-b border-slate-100">수입일시</th>
-                  <th class="px-5 py-3 border-b border-slate-100">구분 및 항목</th>
-                  <th class="px-5 py-3 border-b border-slate-100 text-right">매출액</th>
-                  <th class="px-5 py-3 border-b border-slate-100 text-right">수수료</th>
-                  <th class="px-5 py-3 border-b border-slate-100 text-right text-emerald-600">실수입(공제후)</th>
+                  <th class="px-5 py-3 border-b border-slate-100">수입항목</th>
+                  <th class="px-5 py-3 border-b border-slate-100 text-right">금액 (원)</th>
                   <th class="px-5 py-3 border-b border-slate-100 text-center">관리</th>
                 </tr>
               </thead>
@@ -185,12 +172,11 @@
 
         <!-- 항목별 비율 요약 (수입/지출) -->
         <div class="flex flex-col gap-6 lg:col-span-2">
-          
           <!-- 수입 요약 -->
           <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1">
             <div class="px-6 py-3 border-b border-slate-100 bg-slate-50/50">
               <h3 class="font-extrabold text-slate-800 flex items-center gap-2 text-sm">
-                <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i> 수입 구분별 비율 <span class="text-xs font-normal text-slate-400 ml-1">(실수입 기준)</span>
+                <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i> 수입 구분별 비율
               </h3>
             </div>
             <div class="p-5 overflow-auto flex-1 flex flex-col gap-3.5 min-h-[180px]" id="incomeSummaryBody">
@@ -207,7 +193,6 @@
             <div class="p-5 overflow-auto flex-1 flex flex-col gap-3.5 min-h-[180px]" id="expenseSummaryBody">
             </div>
           </div>
-          
         </div>
       </div>
     </div>
@@ -261,7 +246,7 @@
             </thead>
             <tbody id="expenseTableBody" class="divide-y divide-slate-100">
               <tr>
-                <td colspan="6" class="px-5 py-16 text-center text-slate-400">데이터를 불러오는 중입니다...</td>
+                <td colspan="6" class="px-5 py-16 text-center text-slate-400 font-medium">데이터를 불러오는 중입니다...</td>
               </tr>
             </tbody>
           </table>
@@ -270,7 +255,7 @@
     </div>
   </div>
 
-  <!-- 모달 영역 생략 없이 전체 포함 -->
+  <!-- 모달 영역 (지출 추가) -->
   <div id="expenseModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 opacity-0 transition-opacity">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col transform scale-95 transition-transform" id="expenseModalContent">
       <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -384,20 +369,11 @@
           <label class="text-xs font-bold text-slate-600">수입 상세 항목명 <span class="text-rose-500">*</span></label>
           <input type="text" id="inc-title" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm outline-none transition-shadow" placeholder="예: 1차 얼리버드 캠핑권">
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 mt-2">
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-600">매출액 (수수료 포함)</label>
-            <input type="number" id="inc-gross" oninput="window.calcNetIncome()" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm outline-none transition-shadow" placeholder="0">
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-600">수수료 (차감액)</label>
-            <input type="number" id="inc-fee" oninput="window.calcNetIncome()" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm outline-none transition-shadow text-rose-600" placeholder="0">
-          </div>
-          <div class="space-y-1.5 sm:col-span-2 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-            <label class="text-xs font-bold text-emerald-800">공제 후 매출액 (실수입) <span class="text-rose-500">*</span></label>
-            <input type="number" id="inc-amount" required class="w-full px-3.5 py-2 border-none bg-transparent focus:ring-0 text-xl font-extrabold text-emerald-700 p-0 text-right" placeholder="0">
-            <p class="text-[10px] text-emerald-600 text-right mt-1">매출액 - 수수료가 자동 계산됩니다.</p>
-          </div>
+        
+        <!-- 원상 복구: 매출액 하나만 기입하는 깔끔한 형태 -->
+        <div class="space-y-1.5 pt-2">
+          <label class="text-xs font-bold text-slate-600">금액 (원) <span class="text-rose-500">*</span></label>
+          <input type="number" id="inc-amount" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm outline-none transition-shadow font-bold text-emerald-700" placeholder="0">
         </div>
       </form>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
@@ -479,12 +455,6 @@
       }
     };
 
-    window.calcNetIncome = () => {
-      const gross = Number(document.getElementById('inc-gross').value) || 0;
-      const fee = Number(document.getElementById('inc-fee').value) || 0;
-      document.getElementById('inc-amount').value = gross - fee;
-    };
-
     window.changeIncomeSort = (val) => {
       currentIncomeSort = val;
       requestRender();
@@ -540,6 +510,14 @@
       lucide.createIcons();
     };
 
+    // 콤마나 문자가 포함된 데이터를 순수 숫자로 변환
+    const parseNumber = (val) => {
+      if (val === undefined || val === null || val === '') return 0;
+      if (typeof val === 'number') return val;
+      const str = String(val).replace(/,/g, '').replace(/[^\d.-]/g, '');
+      return Number(str) || 0;
+    };
+
     const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(Math.round(amount || 0));
 
     const formatDateTimeDisplay = (val) => {
@@ -586,9 +564,7 @@
       });
       
       let totalExpense = 0;
-      let totalGrossIncome = 0;
-      let totalFee = 0;
-      let totalNetIncome = 0;
+      let totalIncome = 0;
 
       // 1. 지출 표 그리기
       let expHtml = '';
@@ -617,30 +593,24 @@
       }
       document.getElementById('expenseTableBody').innerHTML = expHtml;
 
-      // 2. 수입 표 그리기 (매출/수수료 분리)
+      // 2. 수입 표 그리기 (이전 버전 구조로 원상복구)
       let incHtml = '';
       if (sortedIncomes.length === 0) {
-        incHtml = `<tr><td colspan="7" class="px-5 py-16 text-center text-slate-400 font-medium">등록된 수입이 없습니다.</td></tr>`;
+        incHtml = `<tr><td colspan="4" class="px-5 py-16 text-center text-slate-400 font-medium">등록된 수입이 없습니다.</td></tr>`;
       } else {
         globalIncomes.forEach(item => {
-          totalGrossIncome += Number(item.gross) || 0;
-          totalFee += Number(item.fee) || 0;
-          totalNetIncome += Number(item.amount) || 0;
+          totalIncome += Number(item.amount) || 0;
         });
 
         sortedIncomes.forEach((item) => {
-          const gross = Number(item.gross) || 0;
-          const fee = Number(item.fee) || 0;
           incHtml += `
             <tr class="hover:bg-emerald-50/30 transition-colors">
               <td class="px-5 py-3 border-b border-slate-50 text-slate-500 font-medium text-xs">${formatDateTimeDisplay(item.date)}</td>
-              <td class="px-5 py-3 border-b border-slate-50"><span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-md text-xs font-bold border border-emerald-100 shadow-sm">${item.category || '기타 수익'}</span></td>
               <td class="px-5 py-3 border-b border-slate-50">
                 <div class="font-bold text-slate-900 truncate max-w-[250px]" title="${item.title || ''}">${item.title || ''}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">${item.category || ''}</div>
               </td>
-              <td class="px-5 py-3 border-b border-slate-50 text-right text-slate-600 font-medium">${gross > 0 ? formatCurrency(gross) : '-'}</td>
-              <td class="px-5 py-3 border-b border-slate-50 text-right text-rose-500 font-medium">${fee > 0 ? '-' + formatCurrency(fee) : '-'}</td>
-              <td class="px-5 py-3 border-b border-slate-50 text-right font-extrabold text-emerald-600 bg-emerald-50/20">+${formatCurrency(item.amount)}</td>
+              <td class="px-5 py-3 border-b border-slate-50 text-right font-extrabold text-emerald-600">+${formatCurrency(item.amount)}</td>
               <td class="px-5 py-3 border-b border-slate-50 text-center whitespace-nowrap">
                 <button onclick="window.editIncome('${item.id}')" class="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="수정">${svgEdit}</button>
                 <button onclick="window.deleteIncome('${item.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="삭제">${svgTrash}</button>
@@ -651,15 +621,14 @@
       }
       document.getElementById('incomeTableBody').innerHTML = incHtml;
 
-      // 3. 대시보드 KPI 4단계 분리 업데이트
+      // 3. 대시보드 KPI (3단계 단순형으로 복구)
       const totalAmountEl = document.getElementById('totalAmount');
       if(totalAmountEl) totalAmountEl.innerText = formatCurrency(totalExpense); 
       
-      document.getElementById('kpi-gross-income').innerText = formatCurrency(totalGrossIncome) + '원';
-      document.getElementById('kpi-net-income').innerText = formatCurrency(totalNetIncome) + '원';
+      document.getElementById('kpi-income').innerText = formatCurrency(totalIncome) + '원';
       document.getElementById('kpi-expense').innerText = formatCurrency(totalExpense) + '원';
       
-      const netProfit = totalNetIncome - totalExpense; // 실수입 - 지출
+      const netProfit = totalIncome - totalExpense; 
       const profitEl = document.getElementById('kpi-profit');
       const profitCard = document.getElementById('kpi-profit-card');
       const profitIconBg = document.getElementById('kpi-profit-icon-bg');
@@ -690,7 +659,7 @@
         bepBanner.className = "bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-2xl p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 transition-all duration-500 shadow-lg";
         bepTitle.className = "font-extrabold text-white text-xl tracking-tight";
         bepTitle.innerText = "진행 상황 분석";
-        bepMessage.innerHTML = `현재 <span class="text-rose-400 font-bold">적자</span> 구간입니다. BEP 돌파를 위해 <b class="text-amber-300">${formatCurrency(Math.abs(netProfit))}원</b>의 실수입이 추가로 필요합니다.`;
+        bepMessage.innerHTML = `현재 <span class="text-rose-400 font-bold">적자</span> 구간입니다. BEP 돌파를 위해 <b class="text-amber-300">${formatCurrency(Math.abs(netProfit))}원</b>의 추가 수입이 필요합니다.`;
         bepStatusIcon.className = "flex shrink-0 w-8 h-8 bg-white/10 rounded-full items-center justify-center border border-white/20 text-amber-400";
         
       } else {
@@ -702,14 +671,14 @@
         bepBanner.className = "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 transition-all duration-500 shadow-sm";
         bepTitle.className = "font-extrabold text-indigo-900 text-xl tracking-tight";
         bepTitle.innerText = "손익분기점(BEP) 모니터링";
-        bepMessage.innerHTML = totalExpense > 0 ? `손익분기점에 정확히 도달했습니다. 이제부터 발생하는 실수입은 모두 이익이 됩니다.` : `수입과 지출 내역을 입력하시면 자동으로 손익을 진단해 드립니다.`;
+        bepMessage.innerHTML = totalExpense > 0 ? `손익분기점에 정확히 도달했습니다. 이제부터 발생하는 수입은 모두 이익이 됩니다.` : `수입과 지출 내역을 입력하시면 자동으로 손익을 진단해 드립니다.`;
         bepStatusIcon.className = "flex shrink-0 w-8 h-8 bg-white shadow-sm rounded-full items-center justify-center border border-blue-200 text-blue-600";
       }
 
       let beRatio = 0;
       if (totalExpense > 0) {
-        beRatio = Math.min((totalNetIncome / totalExpense) * 100, 100);
-      } else if (totalNetIncome > 0) {
+        beRatio = Math.min((totalIncome / totalExpense) * 100, 100);
+      } else if (totalIncome > 0) {
         beRatio = 100;
       }
       
@@ -730,7 +699,7 @@
         progressEl.className = "bg-blue-400 h-2.5 rounded-full transition-all duration-1000 ease-out relative overflow-hidden";
       }
 
-      // 4. 수입 카테고리별 요약 (실수입 기준)
+      // 4. 수입 카테고리별 요약
       const incCategoryTotals = {};
       globalIncomes.forEach(item => {
         const cat = item.category || '기타 & 어트랙션';
@@ -743,7 +712,7 @@
         incSummaryHtml = `<div class="flex items-center justify-center h-full text-slate-400 font-medium text-sm">수입 내역이 없습니다.</div>`;
       } else {
         sortedIncCategories.forEach(([cat, amount]) => {
-          const ratio = totalNetIncome > 0 ? (amount / totalNetIncome) * 100 : 0;
+          const ratio = totalIncome > 0 ? (amount / totalIncome) * 100 : 0;
           incSummaryHtml += `
             <div class="group">
               <div class="flex justify-between text-sm mb-1.5">
@@ -890,7 +859,7 @@
     };
 
     // ==========================================
-    // 수입 관리 CRUD 
+    // 수입 관리 CRUD (단순 형태로 원상 복구)
     // ==========================================
     window.saveIncome = async (e) => {
       e.preventDefault();
@@ -902,8 +871,6 @@
         date: document.getElementById('inc-date').value,
         title: document.getElementById('inc-title').value,
         category: document.getElementById('inc-category').value,
-        gross: Number(document.getElementById('inc-gross').value) || 0,
-        fee: Number(document.getElementById('inc-fee').value) || 0,
         amount: Number(document.getElementById('inc-amount').value) || 0,
         updatedAt: new Date().toISOString()
       };
@@ -934,8 +901,6 @@
       document.getElementById('inc-date').value = dt;
       document.getElementById('inc-title').value = item.title || '';
       document.getElementById('inc-category').value = item.category || '기타 & 어트랙션';
-      document.getElementById('inc-gross').value = item.gross || '';
-      document.getElementById('inc-fee').value = item.fee || '';
       document.getElementById('inc-amount').value = item.amount || '';
 
       document.getElementById('incomeModalTitle').innerHTML = '<div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><i data-lucide="edit" class="w-4 h-4"></i></div> 수입 내역 수정';
@@ -1001,9 +966,6 @@
     window.openIncomeModal = () => {
       document.getElementById('incomeForm').reset();
       document.getElementById('inc-editId').value = '';
-      document.getElementById('inc-gross').value = '';
-      document.getElementById('inc-fee').value = '';
-      document.getElementById('inc-amount').value = '';
       document.getElementById('incomeModalTitle').innerHTML = '<div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><i data-lucide="wallet" class="w-4 h-4"></i></div> 수입 내역 기록';
       lucide.createIcons();
       const today = new Date();
@@ -1029,7 +991,7 @@
     };
 
     // ==========================================
-    // 엑셀 일괄 입출력 로직
+    // 엑셀 일괄 입출력 및 중복/덮어쓰기 스마트 필터링 로직
     // ==========================================
     window.handleExport = () => {
       const sorted = [...globalExpenses].sort((a, b) => (Number(a.no) || 0) - (Number(b.no) || 0));
@@ -1069,13 +1031,23 @@
             const getVal = col => row[headers.indexOf(col)];
             const rawDate = getVal('출금일자');
             const parsedDate = parseExcelDate(rawDate, false);
+
+            const noStr = String(getVal('No.') || '');
+            const companyStr = String(getVal('업체명') || '');
+            const detailsStr = String(getVal('내역') || '');
+            const catStr = String(getVal('구분(카테고리)') || getVal('구분') || '');
+
+            if (noStr.includes('합계') || companyStr.includes('합계') || catStr.includes('합계')) continue;
+            if (noStr.includes('총계') || companyStr.includes('총계') || catStr.includes('총계')) continue;
+            
+            if (!companyStr && !detailsStr) continue;
             
             const item = {
-              no: String(getVal('No.') || ''), 
-              company: String(getVal('업체명') || ''), 
-              details: String(getVal('내역') || ''),
-              category: String(getVal('구분(카테고리)') || getVal('구분') || '기타'), 
-              amount: Number(getVal('금액')) || 0,
+              no: noStr, 
+              company: companyStr, 
+              details: detailsStr,
+              category: catStr || '기타', 
+              amount: parseNumber(getVal('금액')),
               taxInvoice: String(getVal('세금계산서') || ''), 
               bank: String(getVal('은행명') || ''), 
               account: String(getVal('계좌번호') || ''),
@@ -1083,7 +1055,7 @@
               date: parsedDate, 
               note: String(getVal('비고') || '')
             };
-            if (!item.company && !item.amount) continue;
+            if (item.amount === 0 && !item.company) continue;
 
             let existingItem = null;
             if (item.no) {
@@ -1144,9 +1116,7 @@
         '수입일시': formatDateTimeDisplay(item.date),
         '수입구분': item.category,
         '수입항목': item.title,
-        '매출액': item.gross || 0,
-        '수수료': item.fee || 0,
-        '공제후 매출액': item.amount
+        '금액': item.amount
       }));
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
@@ -1166,9 +1136,9 @@
           const worksheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-          let headerRowIndex = jsonData.findIndex(row => row && (row.includes('수입항목') || row.includes('수입일시') || row.includes('수입일자')) && (row.includes('금액') || row.includes('공제후 매출액')));
+          let headerRowIndex = jsonData.findIndex(row => row && (row.includes('수입항목') || row.includes('수입일시') || row.includes('수입일자')) && row.includes('금액'));
           if (headerRowIndex === -1) {
-            return window.showToast('양식이 맞지 않습니다. (수입항목, 금액 또는 공제후 매출액 헤더 필수)', 'error');
+            return window.showToast('양식이 맞지 않습니다. (수입항목, 금액 헤더 필수)', 'error');
           }
 
           const headers = jsonData[headerRowIndex];
@@ -1180,7 +1150,10 @@
 
           for(const row of rows) {
             const getVal = col => row[headers.indexOf(col)];
+            const titleStr = String(getVal('수입항목') || '');
             
+            if (titleStr.includes('합계') || titleStr.includes('총계')) continue;
+
             const rawDate = getVal('수입일시') !== undefined ? getVal('수입일시') : getVal('수입일자');
             let parsedDate = parseExcelDate(rawDate, true);
             
@@ -1190,20 +1163,12 @@
               parsedDate = (new Date(today - tzOffset)).toISOString().slice(0, 10) + 'T00:00';
             }
 
-            const rawGross = Number(getVal('매출액')) || 0;
-            const rawFee = Number(getVal('수수료')) || 0;
-            let rawAmount = Number(getVal('공제후 매출액') || getVal('최종 입금액') || getVal('금액')) || 0;
-            
-            if (rawAmount === 0 && rawGross !== 0) {
-              rawAmount = rawGross - rawFee;
-            }
+            let rawAmount = parseNumber(getVal('금액'));
 
             const item = {
               date: parsedDate,
-              title: String(getVal('수입항목') || ''),
-              category: String(getVal('수입구분') || getVal('수입카테고리') || getVal('카테고리') || '기타 & 어트랙션'),
-              gross: rawGross,
-              fee: rawFee,
+              title: titleStr,
+              category: String(getVal('수입구분') || getVal('수입카테고리') || getVal('카테고리') || '기타 수익'),
               amount: rawAmount
             };
             if (!item.title && !item.amount) continue;
@@ -1211,12 +1176,12 @@
             const existingItem = globalIncomes.find(inc => inc.title === item.title && String(inc.date).slice(0, 10) === item.date.slice(0, 10));
             
             if (existingItem) {
-              const isIdentical = Number(existingItem.amount) === item.amount && existingItem.category === item.category && existingItem.date === item.date && Number(existingItem.gross || 0) === item.gross && Number(existingItem.fee || 0) === item.fee;
+              const isIdentical = Number(existingItem.amount) === item.amount && existingItem.category === item.category && existingItem.date === item.date;
               if (isIdentical) {
                 dup++; 
               } else {
                 const docRef = doc(db, INCOME_COLLECTION, existingItem.id);
-                batch.update(docRef, { gross: item.gross, fee: item.fee, amount: item.amount, category: item.category, date: item.date, updatedAt: new Date().toISOString() });
+                batch.update(docRef, { amount: item.amount, category: item.category, date: item.date, updatedAt: new Date().toISOString() });
                 updated++;
                 batchCount++;
               }
