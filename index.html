@@ -65,7 +65,7 @@
     <!-- ========================================== -->
     <div id="tab-dashboard" class="tab-content active">
       
-      <!-- 핵심 KPI 카드 (3단계 직관적 구조로 복구) -->
+      <!-- 핵심 KPI 카드 (3단계 직관적 구조) -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <!-- 1. 총 수입 -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden group hover:shadow-md transition-shadow">
@@ -122,7 +122,8 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <!-- 레이아웃 비율 개선 (items-start 적용으로 늘어남 방지) -->
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
         
         <!-- 수입 내역 관리 테이블 -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col lg:col-span-3">
@@ -154,7 +155,8 @@
               </button>
             </div>
           </div>
-          <div class="p-0 overflow-auto h-[450px]">
+          <!-- 고정 높이 지정으로 표 영역 독립 스크롤 유지 -->
+          <div class="p-0 overflow-auto h-[600px]">
             <table class="w-full text-left text-sm whitespace-nowrap">
               <thead class="text-slate-500 sticky top-0 bg-white shadow-sm z-10 text-xs uppercase tracking-wider font-bold">
                 <tr>
@@ -172,25 +174,25 @@
 
         <!-- 항목별 비율 요약 (수입/지출) -->
         <div class="flex flex-col gap-6 lg:col-span-2">
-          <!-- 수입 요약 -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1">
+          <!-- 수입 요약 (고정 높이) -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
             <div class="px-6 py-3 border-b border-slate-100 bg-slate-50/50">
               <h3 class="font-extrabold text-slate-800 flex items-center gap-2 text-sm">
                 <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-500"></i> 수입 구분별 비율
               </h3>
             </div>
-            <div class="p-5 overflow-auto flex-1 flex flex-col gap-3.5 min-h-[180px]" id="incomeSummaryBody">
+            <div class="p-5 overflow-auto max-h-[260px] flex flex-col gap-3.5" id="incomeSummaryBody">
             </div>
           </div>
 
-          <!-- 지출 요약 -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1">
+          <!-- 지출 요약 (고정 높이) -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
             <div class="px-6 py-3 border-b border-slate-100 bg-slate-50/50">
               <h3 class="font-extrabold text-slate-800 flex items-center gap-2 text-sm">
                 <i data-lucide="pie-chart" class="w-4 h-4 text-rose-500"></i> 지출 카테고리별 비율
               </h3>
             </div>
-            <div class="p-5 overflow-auto flex-1 flex flex-col gap-3.5 min-h-[180px]" id="expenseSummaryBody">
+            <div class="p-5 overflow-auto max-h-[260px] flex flex-col gap-3.5" id="expenseSummaryBody">
             </div>
           </div>
         </div>
@@ -336,7 +338,6 @@
     </div>
   </div>
 
-  <!-- 수입 모달 -->
   <div id="incomeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 opacity-0 transition-opacity">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col transform scale-95 transition-transform" id="incomeModalContent">
       <div class="px-6 py-5 border-b border-emerald-100 flex items-center justify-between bg-emerald-50/50">
@@ -370,7 +371,6 @@
           <input type="text" id="inc-title" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm outline-none transition-shadow" placeholder="예: 1차 얼리버드 캠핑권">
         </div>
         
-        <!-- 원상 복구: 매출액 하나만 기입하는 깔끔한 형태 -->
         <div class="space-y-1.5 pt-2">
           <label class="text-xs font-bold text-slate-600">금액 (원) <span class="text-rose-500">*</span></label>
           <input type="number" id="inc-amount" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm outline-none transition-shadow font-bold text-emerald-700" placeholder="0">
@@ -379,7 +379,7 @@
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
         <button type="button" onclick="window.closeIncomeModal()" class="px-5 py-2.5 text-sm font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-xl shadow-sm transition-colors">취소</button>
         <button type="submit" form="incomeForm" class="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-bold shadow-md transition-colors">
-          <i data-lucide="check" class="w-4 h-4"></i> 수입 등록
+          <i data-lucide="check" class="w-4 h-4"></i> 수입 저장
         </button>
       </div>
     </div>
@@ -510,7 +510,6 @@
       lucide.createIcons();
     };
 
-    // 콤마나 문자가 포함된 데이터를 순수 숫자로 변환
     const parseNumber = (val) => {
       if (val === undefined || val === null || val === '') return 0;
       if (typeof val === 'number') return val;
@@ -593,7 +592,7 @@
       }
       document.getElementById('expenseTableBody').innerHTML = expHtml;
 
-      // 2. 수입 표 그리기 (이전 버전 구조로 원상복구)
+      // 2. 수입 표 그리기
       let incHtml = '';
       if (sortedIncomes.length === 0) {
         incHtml = `<tr><td colspan="4" class="px-5 py-16 text-center text-slate-400 font-medium">등록된 수입이 없습니다.</td></tr>`;
@@ -621,7 +620,7 @@
       }
       document.getElementById('incomeTableBody').innerHTML = incHtml;
 
-      // 3. 대시보드 KPI (3단계 단순형으로 복구)
+      // 3. 대시보드 KPI 업데이트
       const totalAmountEl = document.getElementById('totalAmount');
       if(totalAmountEl) totalAmountEl.innerText = formatCurrency(totalExpense); 
       
@@ -702,7 +701,7 @@
       // 4. 수입 카테고리별 요약
       const incCategoryTotals = {};
       globalIncomes.forEach(item => {
-        const cat = item.category || '기타 & 어트랙션';
+        const cat = item.category || '기타 수익';
         incCategoryTotals[cat] = (incCategoryTotals[cat] || 0) + (Number(item.amount) || 0);
       });
       const sortedIncCategories = Object.entries(incCategoryTotals).sort((a,b) => b[1] - a[1]);
